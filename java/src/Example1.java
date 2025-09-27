@@ -1,6 +1,41 @@
 import brock.*;
 
+/**
+ * The corresponding blog post has more information on this example.
+ * Please consider leaving a comment if you have any questions or suggestions!
+ */
 public class Example1 {
+
+public static class MyClass {
+    public static class MyInteger {
+        private int value;
+
+        public MyInteger(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        public void setValue(int value) {
+            this.value = value;
+        }
+    }
+
+    public static void useMyInteger(MyInteger myInt) {
+        System.out.print(myInt.getValue() + " ");
+        myInt.setValue(1000);
+        System.out.print(myInt.getValue() + " ");
+    }
+
+    public static void main(String[] args) {
+        MyInteger myInt = new MyInteger(10);
+        useMyInteger(myInt);
+        System.out.println(myInt.getValue());
+        System.out.println("I have changed " + myInt.getValue() + "times");
+    }
+}
 
     /**
      * <p>
