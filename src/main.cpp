@@ -556,7 +556,7 @@ policy_t policy = {
 
 std::array<float, states.size()> evaluate_policy(const policy_t& policy, std::array<float, states.size()> V,
                                                  const float gamma,
-                                                 const u32 I = 100, const float E = 0.001f)
+                                                 const u32 I = 100, const float E = 0.00001f)
 {
     std::array<float, states.size()> Vp = V;
 
@@ -582,7 +582,10 @@ std::array<float, states.size()> evaluate_policy(const policy_t& policy, std::ar
         }
 
         if (delta < E)
+        {
+            BLT_TRACE("Ending after {} iterations with delta {}", i, delta);
             break;
+        }
     }
 
     return Vp;
@@ -590,12 +593,12 @@ std::array<float, states.size()> evaluate_policy(const policy_t& policy, std::ar
 
 void print(const std::array<float, states.size()>& v)
 {
-    std::cout << "V: [\n";
+    std::cout << "V: [\n\t";
     for (const auto& [i, x] : blt::enumerate(v))
     {
         std::cout << x << " ";
         if (i % 4 == 3)
-            std::cout << std::endl;
+            std::cout << std::endl << "\t";
     }
     std::cout << "]" << std::endl;
 }
@@ -608,9 +611,6 @@ void init(const blt::gfx::window_data&)
     resources.load_resources();
     renderer_2d.create();
 
-    std::array<float, states.size()> V{};
-    V = evaluate_policy(policy, V, 0.99);
-    print(V);
 }
 
 void update(const blt::gfx::window_data& data)
@@ -632,4 +632,11 @@ void destroy(const blt::gfx::window_data&)
     blt::gfx::cleanup();
 }
 
-int main() { blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1)); }
+int main()
+{
+    std::array<float, states.size()> V{};
+    V = evaluate_policy(policy, V, 0.99);
+    print(V);
+    return 0;
+    blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1));
+}
