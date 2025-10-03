@@ -22,8 +22,8 @@ macro(compile_options target_name)
         target_compile_options(${target_name} PUBLIC -fuse-ld=mold)
     endif ()
 
-    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-    target_link_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment -std=gnu++23 -lstdc++exp)
+    target_link_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment -std=gnu++23 -lstdc++exp)
     sanitizers(${target_name})
 endmacro()
 
@@ -57,14 +57,18 @@ option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
 option(BUILD_BLT_LEARN_EXAMPLES "Build example programs. This will build with CTest" OFF)
 option(BUILD_BLT_LEARN_TESTS "Build test programs. This will build with CTest" OFF)
 
-set(CMAKE_CXX_STANDARD 23)
-
 add_subdirectory(lib/blt-with-graphics)
 
 include_directories(include/)
 file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CXX_STANDARD 23)
+set(CXX_STANDARD_REQUIRED ON)
+
 add_executable(blt-learn ${PROJECT_BUILD_FILES})
+set_property(TARGET blt-learn PROPERTY CXX_STANDARD 23)
 
 compile_options(blt-learn)
 

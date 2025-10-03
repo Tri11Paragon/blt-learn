@@ -5,6 +5,7 @@
 #include <blt/math/math.h>
 #include <blt/std/random.h>
 #include <imgui.h>
+#include <stack>
 
 #include <utility>
 #include <blt/std/system.h>
@@ -20,12 +21,22 @@ using blt::u32;
 
 enum State_t : u32
 {
+    UNGENERATED,
     Start,
     Frozen,
     Hole,
+    Land,
     Goal
 };
 
+blt::hashmap_t<State_t, float> generation_chances = {
+    {UNGENERATED, 0.0},
+    {Start, 0.0},
+    {Frozen, 0.67},
+    {Hole, 0.33},
+    {Land, 0.8},
+    {Goal, 0.0}
+};
 
 enum Action_t : u32
 {
@@ -52,7 +63,7 @@ using V_t = std::vector<float>;
 struct StateData_t
 {
     std::array<std::vector<ASResult_t>, 4> action_results;
-    State_t state = Frozen;
+    State_t state = UNGENERATED;
 
     StateData_t() = default;
 
@@ -65,9 +76,57 @@ struct StateData_t
 
 struct map_t
 {
-    map_t(const u32 rows, const u32 columns) : number_of_states{rows * columns}, rows{rows}, columns{columns}
+    map_t(const u32 rows, const u32 columns, const blt::i32 min_distance = 1) : number_of_states{rows * columns}, rows{rows}, columns{columns}
     {
         data.resize(number_of_states);
+        const u32 startX = random.get_u32(0, rows);
+        const u32 startY = random.get_u32(0, columns);
+        get_state(startX, startY).state = Start;
+
+        // u32 goalX = 0;
+        // u32 goalY = 0;
+        //
+        // do
+        // {
+        //     goalX = random.get_u32(0, rows);
+        //     goalY = random.get_u32(0, columns);
+        // } while (std::abs(static_cast<blt::i32>(startX) - static_cast<blt::i32>(goalX)) <= min_distance &&
+        //          std::abs(static_cast<blt::i32>(startY) - static_cast<blt::i32>(goalY)) <= min_distance);
+        // get_state(goalX, goalY).state = Goal;
+
+        std::stack<blt::vec2ui> visit;
+        visit.push({startX, startY});
+
+        while (!visit.empty())
+        {
+            auto top = visit.top();
+            visit.pop();
+
+            auto& state = get_state(top);
+            if (state.state != UNGENERATED)
+                continue;
+            const auto up = state_up(top);
+            const auto down = state_down(top);
+            const auto left = state_left(top);
+            const auto right = state_right(top);
+
+            static blt::hashset_t<State_t> candidates;
+            candidates.clear();
+
+            if (up && up->state != UNGENERATED)
+                candidates.insert(up->state);
+            if (down && down->state != UNGENERATED)
+                candidates.insert(down->state);
+            if (left && left->state != UNGENERATED)
+                candidates.insert(left->state);
+            if (right && right->state != UNGENERATED)
+                candidates.insert(right->state);
+
+            if (candidates.contains(Frozen))
+            {
+            }
+        }
+
     }
 
     explicit map_t(std::vector<StateData_t> data) : data{std::move(data)},
@@ -81,6 +140,20 @@ struct map_t
                                                             data.size()))
                                                     }
     {
+    }
+
+    State_t ensure_valid_state(State_t s)
+    {
+        switch (s)
+        {
+        case Start:
+            while (true)
+            {
+                auto v = random.get_u32(0, generation_chances.size());
+                if (generation_chances[static_cast<State_t>(v)] != 0 && random.choice(generation_chances[static_cast<State_t>(v)]))
+                    return static_cast<State_t>(v);
+            }
+        }
     }
 
     [[nodiscard]] blt::vec2 get_pos(const float i, const float j) const
@@ -135,6 +208,16 @@ struct map_t
     [[nodiscard]] const StateData_t& get_state(const u32 r, const u32 c) const
     {
         return data[r * columns + c];
+    }
+
+    StateData_t& get_state(const blt::vec2ui& pos)
+    {
+        return data[pos.x() * columns + pos.y()];
+    }
+
+    [[nodiscard]] const StateData_t& get_state(const blt::vec2ui& pos) const
+    {
+        return data[pos.x() * columns + pos.y()];
     }
 
     [[nodiscard]] policy_t generate_default_policy() const
@@ -209,6 +292,34 @@ private:
         if (v >= rows)
             return {};
         return v * columns + c;
+    }
+
+    [[nodiscard]] std::optional<StateData_t> state_left(const blt::vec2ui pos) const
+    {
+        if (const auto val = state_left(pos.x(), pos.y()))
+            return get_state(*val);
+        return {};
+    }
+
+    [[nodiscard]] std::optional<StateData_t> state_right(const blt::vec2ui pos) const
+    {
+        if (const auto val = state_right(pos.x(), pos.y()))
+            return get_state(*val);
+        return {};
+    }
+
+    [[nodiscard]] std::optional<StateData_t> state_up(const blt::vec2ui pos) const
+    {
+        if (const auto val = state_up(pos.x(), pos.y()))
+            return get_state(*val);
+        return {};
+    }
+
+    [[nodiscard]] std::optional<StateData_t> state_down(const blt::vec2ui pos) const
+    {
+        if (const auto val = state_down(pos.x(), pos.y()))
+            return get_state(*val);
+        return {};
     }
 };
 
@@ -445,4 +556,8 @@ void destroy(const blt::gfx::window_data&)
     blt::gfx::cleanup();
 }
 
-int main() { blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1)); }
+int main()
+{
+    BLT_TRACE("{}", __cplusplus);
+    blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1));
+}
