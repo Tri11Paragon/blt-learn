@@ -47,7 +47,21 @@ struct ASResult_t
 
 using policy_action_t = std::array<float, 4>;
 using policy_t = std::vector<policy_action_t>;
+using V_t = std::vector<float>;
 
+struct StateData_t
+{
+    std::array<std::vector<ASResult_t>, 4> action_results;
+    State_t state = Frozen;
+
+    StateData_t() = default;
+
+    StateData_t(const State_t state, const std::array<std::vector<ASResult_t>, 4>& action_results)
+        : action_results(action_results),
+          state(state)
+    {
+    }
+};
 
 struct map_t
 {
@@ -56,16 +70,16 @@ struct map_t
         data.resize(number_of_states);
     }
 
-    explicit map_t(std::vector<std::array<std::vector<ASResult_t>, 4>> data) : data{std::move(data)},
-                                                                               number_of_states{data.size()},
-                                                                               rows{
-                                                                                   static_cast<u32>(std::log2(
-                                                                                       data.size()))
-                                                                               },
-                                                                               columns{
-                                                                                   static_cast<u32>(std::log2(
-                                                                                       data.size()))
-                                                                               }
+    explicit map_t(std::vector<StateData_t> data) : data{std::move(data)},
+                                                    number_of_states{data.size()},
+                                                    rows{
+                                                        static_cast<u32>(std::log2(
+                                                            data.size()))
+                                                    },
+                                                    columns{
+                                                        static_cast<u32>(std::log2(
+                                                            data.size()))
+                                                    }
     {
     }
 
@@ -88,31 +102,74 @@ struct map_t
 
     blt::vec2 get_size() { return {width, height}; }
 
-    static constexpr blt::generalized_matrix<State_t, 4, 4> states{
-        std::array{
-            Start,
-            Frozen,
-            Frozen,
-            Frozen,
+    [[nodiscard]] size_t get_number_of_states() const
+    {
+        return number_of_states;
+    }
 
-            Frozen,
-            Hole,
-            Frozen,
-            Hole,
+    [[nodiscard]] u32 get_rows() const
+    {
+        return rows;
+    }
 
-            Frozen,
-            Frozen,
-            Frozen,
-            Hole,
+    [[nodiscard]] u32 get_columns() const
+    {
+        return columns;
+    }
 
-            Hole,
-            Frozen,
-            Frozen,
-            Goal
+    StateData_t& get_state(const u32 state)
+    {
+        return data[state];
+    }
+
+    [[nodiscard]] const StateData_t& get_state(const u32 state) const
+    {
+        return data[state];
+    }
+
+    StateData_t& get_state(const u32 r, const u32 c)
+    {
+        return data[r * columns + c];
+    }
+
+    [[nodiscard]] const StateData_t& get_state(const u32 r, const u32 c) const
+    {
+        return data[r * columns + c];
+    }
+
+    [[nodiscard]] policy_t generate_default_policy() const
+    {
+        policy_t policy;
+        policy.resize(number_of_states, std::array{0.25f, 0.25f, 0.25f, 0.25f});
+        return policy;
+    }
+
+    [[nodiscard]] policy_t generate_random_policy()
+    {
+        policy_t policy;
+        for (size_t i = 0; i < number_of_states; i++)
+        {
+            float remaining = 1.0f;
+            const auto v1 = random.get_float(0, remaining);
+            remaining -= v1;
+            const auto v2 = random.get_float(0, remaining);
+            remaining -= v2;
+            const auto v3 = random.get_float(0, remaining);
+            remaining -= v3;
+
+            policy.emplace_back(std::array{v1, v2, v3, remaining});
         }
-    };
+        return policy;
+    }
 
-    std::vector<std::array<std::vector<ASResult_t>, 4>> data;
+    blt::random::random_t& get_random()
+    {
+        return random;
+    }
+
+private:
+    blt::random::random_t random{std::random_device()()};
+    std::vector<StateData_t> data;
     size_t number_of_states;
     u32 rows, columns;
     float beginX = 50;
@@ -157,357 +214,17 @@ struct map_t
 
 
 map_t map{
-    {
-        // State 0:
-        // State 0:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 0, false},
-                ASResult_t{0.3333333333333333, 0, 0, false},
-                ASResult_t{0.33333333333333337, 0, 4, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 0, false},
-                ASResult_t{0.3333333333333333, 0, 4, false},
-                ASResult_t{0.33333333333333337, 0, 1, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 4, false},
-                ASResult_t{0.3333333333333333, 0, 1, false},
-                ASResult_t{0.33333333333333337, 0, 0, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 1, false},
-                ASResult_t{0.3333333333333333, 0, 0, false},
-                ASResult_t{0.33333333333333337, 0, 0, false},
-            },
-        },
-
-        // State 1:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 1, false},
-                ASResult_t{0.3333333333333333, 0, 0, false},
-                ASResult_t{0.33333333333333337, 0, 5, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 0, false},
-                ASResult_t{0.3333333333333333, 0, 5, true},
-                ASResult_t{0.33333333333333337, 0, 2, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 5, true},
-                ASResult_t{0.3333333333333333, 0, 2, false},
-                ASResult_t{0.33333333333333337, 0, 1, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 2, false},
-                ASResult_t{0.3333333333333333, 0, 1, false},
-                ASResult_t{0.33333333333333337, 0, 0, false},
-            },
-        },
-
-        // State 2:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 2, false},
-                ASResult_t{0.3333333333333333, 0, 1, false},
-                ASResult_t{0.33333333333333337, 0, 6, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 1, false},
-                ASResult_t{0.3333333333333333, 0, 6, false},
-                ASResult_t{0.33333333333333337, 0, 3, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 6, false},
-                ASResult_t{0.3333333333333333, 0, 3, false},
-                ASResult_t{0.33333333333333337, 0, 2, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 3, false},
-                ASResult_t{0.3333333333333333, 0, 2, false},
-                ASResult_t{0.33333333333333337, 0, 1, false},
-            },
-        },
-
-        // State 3:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 3, false},
-                ASResult_t{0.3333333333333333, 0, 2, false},
-                ASResult_t{0.33333333333333337, 0, 7, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 2, false},
-                ASResult_t{0.3333333333333333, 0, 7, true},
-                ASResult_t{0.33333333333333337, 0, 3, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 7, true},
-                ASResult_t{0.3333333333333333, 0, 3, false},
-                ASResult_t{0.33333333333333337, 0, 3, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 3, false},
-                ASResult_t{0.3333333333333333, 0, 3, false},
-                ASResult_t{0.33333333333333337, 0, 2, false},
-            },
-        },
-
-        // State 4:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 0, false},
-                ASResult_t{0.3333333333333333, 0, 4, false},
-                ASResult_t{0.33333333333333337, 0, 8, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 4, false},
-                ASResult_t{0.3333333333333333, 0, 8, false},
-                ASResult_t{0.33333333333333337, 0, 5, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 8, false},
-                ASResult_t{0.3333333333333333, 0, 5, true},
-                ASResult_t{0.33333333333333337, 0, 0, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 5, true},
-                ASResult_t{0.3333333333333333, 0, 0, false},
-                ASResult_t{0.33333333333333337, 0, 4, false},
-            },
-        },
-
-        // State 5:
-        std::array{
-            std::vector{ASResult_t{1.0, 0, 5, true},},
-            std::vector{ASResult_t{1.0, 0, 5, true},},
-            std::vector{ASResult_t{1.0, 0, 5, true},},
-            std::vector{ASResult_t{1.0, 0, 5, true},},
-        },
-
-        // State 6:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 2, false},
-                ASResult_t{0.3333333333333333, 0, 5, true},
-                ASResult_t{0.33333333333333337, 0, 10, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 5, true},
-                ASResult_t{0.3333333333333333, 0, 10, false},
-                ASResult_t{0.33333333333333337, 0, 7, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 10, false},
-                ASResult_t{0.3333333333333333, 0, 7, true},
-                ASResult_t{0.33333333333333337, 0, 2, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 7, true},
-                ASResult_t{0.3333333333333333, 0, 2, false},
-                ASResult_t{0.33333333333333337, 0, 5, true},
-            },
-        },
-
-        // State 7:
-        std::array{
-            std::vector{ASResult_t{1.0, 0, 7, true},},
-            std::vector{ASResult_t{1.0, 0, 7, true},},
-            std::vector{ASResult_t{1.0, 0, 7, true},},
-            std::vector{ASResult_t{1.0, 0, 7, true},},
-        },
-
-        // State 8:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 4, false},
-                ASResult_t{0.3333333333333333, 0, 8, false},
-                ASResult_t{0.33333333333333337, 0, 12, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 8, false},
-                ASResult_t{0.3333333333333333, 0, 12, true},
-                ASResult_t{0.33333333333333337, 0, 9, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 12, true},
-                ASResult_t{0.3333333333333333, 0, 9, false},
-                ASResult_t{0.33333333333333337, 0, 4, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 9, false},
-                ASResult_t{0.3333333333333333, 0, 4, false},
-                ASResult_t{0.33333333333333337, 0, 8, false},
-            },
-        },
-
-        // State 9:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 5, true},
-                ASResult_t{0.3333333333333333, 0, 8, false},
-                ASResult_t{0.33333333333333337, 0, 13, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 8, false},
-                ASResult_t{0.3333333333333333, 0, 13, false},
-                ASResult_t{0.33333333333333337, 0, 10, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 13, false},
-                ASResult_t{0.3333333333333333, 0, 10, false},
-                ASResult_t{0.33333333333333337, 0, 5, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 10, false},
-                ASResult_t{0.3333333333333333, 0, 5, true},
-                ASResult_t{0.33333333333333337, 0, 8, false},
-            },
-        },
-
-        // State 10:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 6, false},
-                ASResult_t{0.3333333333333333, 0, 9, false},
-                ASResult_t{0.33333333333333337, 0, 14, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 9, false},
-                ASResult_t{0.3333333333333333, 0, 14, false},
-                ASResult_t{0.33333333333333337, 0, 11, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 14, false},
-                ASResult_t{0.3333333333333333, 0, 11, true},
-                ASResult_t{0.33333333333333337, 0, 6, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 11, true},
-                ASResult_t{0.3333333333333333, 0, 6, false},
-                ASResult_t{0.33333333333333337, 0, 9, false},
-            },
-        },
-
-        // State 11:
-        std::array{
-            std::vector{ASResult_t{1.0, 0, 11, true},},
-            std::vector{ASResult_t{1.0, 0, 11, true},},
-            std::vector{ASResult_t{1.0, 0, 11, true},},
-            std::vector{ASResult_t{1.0, 0, 11, true},},
-        },
-
-        // State 12:
-        std::array{
-            std::vector{ASResult_t{1.0, 0, 12, true},},
-            std::vector{ASResult_t{1.0, 0, 12, true},},
-            std::vector{ASResult_t{1.0, 0, 12, true},},
-            std::vector{ASResult_t{1.0, 0, 12, true},},
-        },
-
-        // State 13:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 9, false},
-                ASResult_t{0.3333333333333333, 0, 12, true},
-                ASResult_t{0.33333333333333337, 0, 13, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 12, true},
-                ASResult_t{0.3333333333333333, 0, 13, false},
-                ASResult_t{0.33333333333333337, 0, 14, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 13, false},
-                ASResult_t{0.3333333333333333, 0, 14, false},
-                ASResult_t{0.33333333333333337, 0, 9, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 14, false},
-                ASResult_t{0.3333333333333333, 0, 9, false},
-                ASResult_t{0.33333333333333337, 0, 12, true},
-            },
-        },
-
-        // State 14:
-        std::array{
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 10, false},
-                ASResult_t{0.3333333333333333, 0, 13, false},
-                ASResult_t{0.33333333333333337, 0, 14, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 13, false},
-                ASResult_t{0.3333333333333333, 0, 14, false},
-                ASResult_t{0.33333333333333337, 1, 15, true},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 0, 14, false},
-                ASResult_t{0.3333333333333333, 1, 15, true},
-                ASResult_t{0.33333333333333337, 0, 10, false},
-            },
-            std::vector{
-                ASResult_t{0.33333333333333337, 1, 15, true},
-                ASResult_t{0.3333333333333333, 0, 10, false},
-                ASResult_t{0.33333333333333337, 0, 13, false},
-            },
-        },
-
-        // State 15:
-        std::array{
-            std::vector{ASResult_t{1.0, 0, 15, true},},
-            std::vector{ASResult_t{1.0, 0, 15, true},},
-            std::vector{ASResult_t{1.0, 0, 15, true},},
-            std::vector{ASResult_t{1.0, 0, 15, true},},
-        }
-    }
+    4, 4
 };
 
-policy_t default_policy = {
-    // state 0
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 1
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 2
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 3
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 4
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 5
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 6
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 7
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 8
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 9
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 10
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 11
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 12
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 13
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 14
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-    // state 16
-    std::array{0.25f, 0.25f, 0.25f, 0.25f},
-};
-
-std::array<float, map_t::states.size()> evaluate_policy(const map_t& lmap,
-                                                        const policy_t& lpolicy,
-                                                        std::array<float, policy_t{}.size()> V,
-                                                        const float gamma,
-                                                        const u32 I = 100,
-                                                        const float E = 0.00001f)
+V_t evaluate_policy(const map_t& lmap,
+                    const policy_t& lpolicy,
+                    V_t V,
+                    const float gamma,
+                    const u32 I = 100,
+                    const float E = 0.00001f)
 {
-    std::array<float, policy_t{}.size()> Vp = V;
+    auto Vp = V;
 
     for (u32 i = 0; i < I; i++)
     {
@@ -515,7 +232,7 @@ std::array<float, map_t::states.size()> evaluate_policy(const map_t& lmap,
         V = Vp;
         for (u32 x = 0; x < V.size(); x++)
         {
-            auto& ws = lmap.data[x];
+            auto& ws = lmap.get_state(x).action_results;
             auto& ps = lpolicy[x];
 
             float v = 0;
@@ -544,7 +261,7 @@ std::array<float, map_t::states.size()> evaluate_policy(const map_t& lmap,
 
 policy_t greedy_policy(const map_t& lmap,
                        const policy_t& lpolicy,
-                       std::array<float, policy_t{}.size()> V,
+                       V_t V,
                        const float gamma)
 {
     policy_t new_policy = lpolicy;
@@ -552,7 +269,7 @@ policy_t greedy_policy(const map_t& lmap,
     for (u32 x = 0; x < V.size(); x++)
     {
         auto& policy_action = new_policy[x];
-        auto& ms = lmap.data[x];
+        auto& ms = lmap.get_state(x).action_results;
 
         u32 action = 0;
         float value = std::numeric_limits<float>::min();
@@ -581,7 +298,7 @@ policy_t greedy_policy(const map_t& lmap,
     return new_policy;
 }
 
-void print(const std::array<float, policy_t{}.size()>& v)
+void print(const V_t& v)
 {
     std::cout << "V: [\n\t";
     for (const auto& [i, x] : blt::enumerate(v))
@@ -593,14 +310,14 @@ void print(const std::array<float, policy_t{}.size()>& v)
     std::cout << "]" << std::endl;
 }
 
-std::array<float, policy_t{}.size()> V{};
-policy_t current_policy = default_policy;
+V_t V{};
+policy_t current_policy = map.generate_random_policy();
 float Gamma = 0.999;
 
 
 struct agent_t
 {
-    bool update()
+    bool update(map_t& lmap)
     {
         const auto next_state = current_policy[current_state];
         for (u32 i = 0; i < next_state.size(); i++)
@@ -609,7 +326,7 @@ struct agent_t
             // not to mention it is likely imbalanced
             if (random.choice(next_state[i]))
             {
-                const auto vals = map.data[current_state][i];
+                const auto vals = lmap.get_state(current_state).action_results[i];
                 for (const auto& v : vals)
                 {
                     // which means we might just not move into next state.
@@ -656,7 +373,7 @@ void update(const blt::gfx::window_data& data)
         for (int j = 0; j < 4; j++)
         {
             auto color = blt::make_color(1, 0, 0);
-            const auto val = map_t::states.m(i, j);
+            const auto val = map.get_state(i, j).state;
 
             if (val == Goal)
                 color = blt::make_color(0, 1, 0);
@@ -711,7 +428,7 @@ void update(const blt::gfx::window_data& data)
     }
     ImGui::End();
 
-    if (run_agent) { agent_dead |= my_agent.update(); }
+    if (run_agent) { agent_dead |= my_agent.update(map); }
 
     renderer_2d.drawPoint(blt::gfx::point2d_t{map.get_pos(my_agent.current_state), 25},
                           blt::make_color(.8, .8, .8),
