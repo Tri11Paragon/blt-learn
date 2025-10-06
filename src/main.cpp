@@ -81,7 +81,8 @@ struct candidate_map_t
     {
         data.resize(rows * columns);
         for (auto& row : data)
-            row = {Start, Frozen, Hole, Land, Goal};
+            row = {Frozen, Hole, Land, Goal};
+        generate_start();
     }
 
     void generate_start()
@@ -89,6 +90,39 @@ struct candidate_map_t
         const u32 startX = random.get_u32(0, rows);
         const u32 startY = random.get_u32(0, columns);
         possible_states(startX, startY) = {Start};
+    }
+
+    [[nodiscard]] float shannon_entropy(const u32 r, const u32 c) const
+    {
+        float sum = 0;
+        float log_sum = 0;
+        for (const auto& s : possible_states(r, c))
+        {
+            sum += weights.at(s);
+            log_sum += weights.at(s) * std::log2(weights.at(s));
+        }
+        return std::log2(sum) - (log_sum / sum);
+    }
+
+    void collapse(const u32 r, const u32 c)
+    {
+        auto& ops = possible_states(r, c);
+        float total_weight = 0;
+        for (const auto& s : ops)
+            total_weight += weights.at(s);
+        auto rnd = random.get_float() * total_weight;
+
+        State_t chosen = Frozen;
+        for (const auto& tile : ops)
+        {
+            rnd -= weights.at(tile);
+            if (rnd < 0)
+            {
+                chosen = tile;
+                break;
+            }
+        }
+        ops = {chosen};
     }
 
     [[nodiscard]] const std::vector<State_t>& possible_states(const u32 r, const u32 c) const
