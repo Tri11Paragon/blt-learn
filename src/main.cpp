@@ -6,6 +6,7 @@
 #include <blt/std/random.h>
 #include <imgui.h>
 #include <stack>
+#include <blt/math/v2/algebra.h>
 
 #include <utility>
 #include <blt/std/system.h>
@@ -76,7 +77,8 @@ struct StateData_t
 
 struct map_t
 {
-    map_t(const u32 rows, const u32 columns, const blt::i32 min_distance = 1) : number_of_states{rows * columns}, rows{rows}, columns{columns}
+    map_t(const u32 rows, const u32 columns, const blt::i32 min_distance = 1) : number_of_states{rows * columns},
+        rows{rows}, columns{columns}
     {
         data.resize(number_of_states);
         const u32 startX = random.get_u32(0, rows);
@@ -126,7 +128,6 @@ struct map_t
             {
             }
         }
-
     }
 
     explicit map_t(std::vector<StateData_t> data) : data{std::move(data)},
@@ -150,7 +151,8 @@ struct map_t
             while (true)
             {
                 auto v = random.get_u32(0, generation_chances.size());
-                if (generation_chances[static_cast<State_t>(v)] != 0 && random.choice(generation_chances[static_cast<State_t>(v)]))
+                if (generation_chances[static_cast<State_t>(v)] != 0 && random.choice(
+                    generation_chances[static_cast<State_t>(v)]))
                     return static_cast<State_t>(v);
             }
         }
@@ -558,6 +560,27 @@ void destroy(const blt::gfx::window_data&)
 
 int main()
 {
+    const blt::matrix_t<blt::detail::static_matrix_t<float, 4, 4>, blt::detail::set_identity_t, blt::detail::print_t>
+        mat1{};
+    const blt::matrix_t<blt::detail::static_matrix_t<float, 4, 4>, blt::detail::set_identity_t, blt::detail::print_t>
+        mat2{
+            0, 0, 0, 100,
+            0, 0, 0, 100,
+            0, 0, 0, 100,
+            0, 0, 0, 1
+        };
+    const auto ret = mat1.set_identity();
+    ret.print(std::cout);
+    BLT_TRACE("");
+    mat2.print(std::cout);
+
+    auto mul = ret * mat2;
+
+    BLT_TRACE("");
+    mul.print(std::cout);
+    mul = mul.set_identity();
+    mul.print(std::cout);
+
     BLT_TRACE("{}", __cplusplus);
     blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1));
 }
