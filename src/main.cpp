@@ -22,21 +22,11 @@ using blt::u32;
 
 enum State_t : u32
 {
-    UNGENERATED,
     Start,
     Frozen,
     Hole,
     Land,
     Goal
-};
-
-blt::hashmap_t<State_t, float> generation_chances = {
-    {UNGENERATED, 0.0},
-    {Start, 0.0},
-    {Frozen, 0.67},
-    {Hole, 0.33},
-    {Land, 0.8},
-    {Goal, 0.0}
 };
 
 enum Action_t : u32
@@ -64,7 +54,7 @@ using V_t = std::vector<float>;
 struct StateData_t
 {
     std::array<std::vector<ASResult_t>, 4> action_results;
-    State_t state = UNGENERATED;
+    State_t state = Start;
 
     StateData_t() = default;
 
@@ -72,6 +62,67 @@ struct StateData_t
         : action_results(action_results),
           state(state)
     {
+    }
+};
+
+struct candidate_map_t
+{
+    std::vector<std::vector<State_t>> data;
+    blt::hashmap_t<State_t, float> weights;
+    blt::hashmap_t<State_t, blt::hashmap_t<State_t, blt::hashset_t<Action_t>>> compatibility;
+    blt::random::random_t& random;
+    u32 rows, columns;
+
+    candidate_map_t(const u32 rows, const u32 columns, blt::hashmap_t<State_t, float> weights,
+                    blt::random::random_t& random) : weights{
+                                                         std::move(weights)
+                                                     }, random{random},
+                                                     rows{rows}, columns{columns}
+    {
+        data.resize(rows * columns);
+        for (auto& row : data)
+            row = {Start, Frozen, Hole, Land, Goal};
+    }
+
+    void generate_start()
+    {
+        const u32 startX = random.get_u32(0, rows);
+        const u32 startY = random.get_u32(0, columns);
+        possible_states(startX, startY) = {Start};
+    }
+
+    [[nodiscard]] const std::vector<State_t>& possible_states(const u32 r, const u32 c) const
+    {
+        return data[r * columns + c];
+    }
+
+    std::vector<State_t>& possible_states(const u32 r, const u32 c)
+    {
+        return data[r * columns + c];
+    }
+
+    [[nodiscard]] bool is_complete() const
+    {
+        for (const auto& row : data)
+            if (row.size() != 1)
+                return false;
+        return true;
+    }
+
+    [[nodiscard]] std::vector<StateData_t> generate_states() const
+    {
+        std::vector<StateData_t> states;
+        for (u32 r = 0; r < rows; r++)
+        {
+            for (u32 c = 0; c < columns; c++)
+            {
+                auto& ps = possible_states(r, c);
+                BLT_ASSERT(ps.size() == 1);
+                states[r * columns + c].state = ps.front();
+            }
+        }
+
+        return states;
     }
 };
 
