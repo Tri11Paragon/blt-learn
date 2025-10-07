@@ -1,12 +1,12 @@
 import brock.Turtle;
 import brock.TurtleDisplayer;
 
-public class Homework1 {
+public class HomeworkBase {
 
     TurtleDisplayer display;
     Turtle yertle;
 
-    public Homework1() {
+    public HomeworkBase() {
         display = new TurtleDisplayer();
         yertle = new Turtle();
 
@@ -14,13 +14,8 @@ public class Homework1 {
         display.waitForUser();
     }
 
-    // Make functions to draw various polygons {Triangle, Square, Circle} at a position (x, y) with a size.
-    // Provide an option to fill the shape.
-
-    // Make a function to draw a line from (x1, y1) to (x2, y2).
-
     public static void main(String[] args) {
-        new Homework1();
+        new HomeworkBase();
     }
 
 }
