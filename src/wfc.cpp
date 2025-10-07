@@ -790,7 +790,7 @@ void destroy(const blt::gfx::window_data&)
     blt::gfx::cleanup();
 }
 
-int main()
+int wfcfl2()
 {
     const blt::matrix_t<blt::detail::static_matrix_t<float, 4, 4>, blt::detail::set_identity_t, blt::detail::print_t>
         mat1{};
