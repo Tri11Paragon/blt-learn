@@ -33,10 +33,7 @@ public class Homework1Solution {
 
     // function takes in an x,y coordinate and draws a triangle of size size
     void drawTriangle(int x, int y, int size, boolean filled) {
-        // we have no idea what angle the turtle is facing, so we need to set it to a known angle.
-        // 0 is the default angle, meaning facing right.
-        yertle.setAngle(0);
-        // continuing with the theme of making the turtle in a consistent state, we should turn off the pen.
+        // to make sure we don't draw random lines we should turn off the pen before moving.
         yertle.penUp();
 
         // move to the position the user wants us to draw the triangle at.
@@ -64,9 +61,7 @@ public class Homework1Solution {
 
     // function takes in an x,y coordinate and draws a square of width, height (width=height for square)
     void drawSquare(int x, int y, int width, int height, boolean filled) {
-        yertle.setAngle(0);
         yertle.penUp();
-
         yertle.moveTo(x - width / 2.0, y - height / 2.0);
 //        yertle.moveTo(x, y);
 
@@ -87,7 +82,6 @@ public class Homework1Solution {
 
     // function takes in an x,y coordinate and draws a circle of size size
     void drawCircle(int x, int y, int size, boolean filled) {
-        yertle.setAngle(0);
         yertle.penUp();
         yertle.moveTo(x, y);
         yertle.penDown();
