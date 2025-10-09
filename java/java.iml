@@ -7,6 +7,6 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="java-v1-0-0" level="project" />
+    <orderEntry type="library" name="brock-v1-0-5" level="project" />
   </component>
 </module>
