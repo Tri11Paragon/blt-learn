@@ -1,6 +1,7 @@
 import brock.Picture;
 import brock.PictureDisplayer;
 
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 
 public class Homework3Solution {
@@ -26,11 +27,26 @@ public class Homework3Solution {
         display.placePicture(out);
         display.waitForUser();
 
-        spiral(50);
+//        mixRandom();
+//        mixRandom2();
+//        mixHorizontal(50);
+//        mixVertical(50);
+//        checkerBoard(50);
+//        checkerBoard2(50);
+//        rings(50);
+//        spiral(50);
+//        sincos(50);
+//        tans(50);
+//        pattern(50);
+        pattern2(50);
+    }
+
+    static boolean mix(Integer x, Integer y) {
+        return Math.random() < 0.5;
     }
 
     void mixRandom(){
-        mix_images((x, y) -> Math.random() < 0.5);
+        mix_images(Homework3Solution::mix);
     }
 
     void mixRandom2(){
@@ -82,7 +98,7 @@ public class Homework3Solution {
 
 
     void sincos(int stripeSize){
-        mix_images((x, y) -> Math.sin(x) / stripeSize < Math.cos(y) / stripeSize);
+        blend_images((x, y) -> ((Math.sin((double) x / stripeSize) + 1) / 2f + (Math.cos((double) y / stripeSize) + 1) / 2f) / 2f);
     }
 
     void tans(int stripeSize){
@@ -116,6 +132,16 @@ public class Homework3Solution {
     // I did this only to prevent code duplication.
     // Your code likely has a bunch of individual functions or a single function.
     void mix_images(BiPredicate<Integer, Integer> selectPred){
+        blend_images((Integer x, Integer y) -> {
+            if (selectPred.test(x, y)) {
+                return 1d;
+            } else {
+                return 0d;
+            }
+        });
+    }
+
+    void blend_images(BiFunction<Integer, Integer, Double> blendFunc){
         while (in1.hasNext() && in2.hasNext() && out.hasNext()){
             var p1 = in1.next();
             var p2 = in2.next();
@@ -132,15 +158,12 @@ public class Homework3Solution {
             var g2 = p2.getGreen();
             var b2 = p2.getBlue();
 
-            if (selectPred.test(x, y)){
-                o.setRed(r1);
-                o.setGreen(g1);
-                o.setBlue(b1);
-            } else {
-                o.setRed(r2);
-                o.setGreen(g2);
-                o.setBlue(b2);
-            }
+            var f1 = blendFunc.apply(x, y);
+            var f2 = 1 - f1;
+
+            o.setRed((int)(r1 * f1 + r2 * f2));
+            o.setGreen((int)(g1 * f1 + g2 * f2));
+            o.setBlue((int)(b1 * f1 + b2 * f2));
         }
     }
 
