@@ -13,10 +13,10 @@
 #include <blt/std/time.h>
 #include <algorithm>
 
-blt::gfx::matrix_state_manager global_matrices;
-blt::gfx::resource_manager resources;
-blt::gfx::batch_renderer_2d renderer_2d(resources, global_matrices);
-blt::gfx::first_person_camera_2d camera;
+static blt::gfx::matrix_state_manager global_matrices;
+static blt::gfx::resource_manager resources;
+static blt::gfx::batch_renderer_2d renderer_2d(resources, global_matrices);
+static blt::gfx::first_person_camera_2d camera;
 
 using blt::u32;
 
@@ -675,7 +675,7 @@ struct agent_t
 
 agent_t my_agent;
 
-void init(const blt::gfx::window_data&)
+static void init(const blt::gfx::window_data&)
 {
     using namespace blt::gfx;
 
@@ -692,7 +692,7 @@ void init(const blt::gfx::window_data&)
     renderer_2d.create();
 }
 
-void update(const blt::gfx::window_data& data)
+static void update(const blt::gfx::window_data& data)
 {
     global_matrices.update_perspectives(data.width, data.height, 90, 0.1, 2000);
 
@@ -782,7 +782,7 @@ void update(const blt::gfx::window_data& data)
     renderer_2d.render(data.width, data.height);
 }
 
-void destroy(const blt::gfx::window_data&)
+static void destroy(const blt::gfx::window_data&)
 {
     global_matrices.cleanup();
     resources.cleanup();
