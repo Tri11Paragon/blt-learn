@@ -4,7 +4,7 @@ import brock.PictureDisplayer;
 import javax.imageio.ImageIO;
 import java.io.File;
 
-public class Homework4Solution {
+public class Homework4SolutionSimple {
 
     private PictureDisplayer display;
 
@@ -15,9 +15,7 @@ public class Homework4Solution {
     int width = 1;
     int mask = mask();
 
-    int channel = 0;
-
-    public Homework4Solution() {
+    public Homework4SolutionSimple() {
         encode();
         decode();
     }
@@ -77,36 +75,29 @@ public class Homework4Solution {
         int size = 8 / width;
         for (int i = 0; i < size; i++){
             int write = (by >>> (width * i)) & mask;
-            if (!out.hasNext()){
-                channel++;
-                out.resetDirectIteration();
-                if (channel >= 3)
-                    throw new RuntimeException("Out of space in image");
-            }
+
+            // if we run out of space, we should crash. No complex error handling here.
+            if (!out.hasNext())
+                throw new RuntimeException("Out of space in image");
 
             var outputPix = out.next();
 
-            switch (channel){
-                case 0:
-                    int r = outputPix.getRed();
-                    r &= ~mask;
-                    r |= write;
+            // encode to all channels to prevent color artifacts
+            int r = outputPix.getRed();
+            r &= ~mask;
+            r |= write;
 
-                    outputPix.setRed(r);
-                    break;
-                case 1:
-                    int g = outputPix.getGreen();
-                    g &= ~mask;
-                    g |= write;
-                    outputPix.setGreen(g);
-                    break;
-                case 2:
-                    int b = outputPix.getBlue();
-                    b &= ~mask;
-                    b |= write;
-                    outputPix.setBlue(b);
-                    break;
-            }
+            outputPix.setRed(r);
+
+            int g = outputPix.getGreen();
+            g &= ~mask;
+            g |= write;
+            outputPix.setGreen(g);
+
+            int b = outputPix.getBlue();
+            b &= ~mask;
+            b |= write;
+            outputPix.setBlue(b);
         }
     }
 
@@ -135,23 +126,10 @@ public class Homework4Solution {
         int size = 8 / width;
         int read = 0;
         for (int i = 0; i < size; i++){
-            if (!in1.hasNext()){
-                channel++;
-                in1.resetDirectIteration();
-                if (channel >= 3)
-                    throw new RuntimeException("Out of space in image");
-            }
-            switch (channel){
-                case 0:
-                    read |= (in1.next().getRed() & mask) << (width * i);
-                    break;
-                case 1:
-                    read |= (in1.next().getGreen() & mask) << (width * i);
-                    break;
-                case 2:
-                    read |= (in1.next().getBlue() & mask) << (width * i);
-                    break;
-            }
+            // this line will stop Java from continuing (crashes the program) if we run out of space.
+            if (!in1.hasNext())
+                throw new RuntimeException("Out of space in image");
+            read |= (in1.next().getRed() & mask) << (width * i);
         }
         return (byte) read;
     }
@@ -177,7 +155,7 @@ public class Homework4Solution {
     }
 
     public static void main(String[] args) {
-        new Homework4Solution();
+        new Homework4SolutionSimple();
     }
 
 }
