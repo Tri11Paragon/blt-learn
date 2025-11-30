@@ -49,7 +49,25 @@ macro(blt_add_project name source type)
     project(blt-learn)
 endmacro()
 
-project(blt-learn VERSION 0.0.2)
+function(has_main INPUT_FILE OUT_VAR)
+    if(NOT EXISTS "${INPUT_FILE}")
+        message(FATAL_ERROR "File not found: ${INPUT_FILE}")
+    endif()
+
+    file(READ "${INPUT_FILE}" _contents)
+
+    set(_main_regex
+            "main\(.*\)"
+    )
+    string(REGEX MATCH ${_main_regex} svr ${_contents})
+    if(svr)
+        set(${OUT_VAR} TRUE PARENT_SCOPE)
+    else()
+        set(${OUT_VAR} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
+project(blt-learn VERSION 0.0.3)
 
 message(STATUS "Building runtime with C++ compiler: ${CMAKE_CXX_COMPILER}")
 
@@ -64,15 +82,50 @@ option(BUILD_BLT_LEARN_TESTS "Build test programs. This will build with CTest" O
 add_subdirectory(lib/blt-with-graphics)
 
 include_directories(include/)
-file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/lib/*.cpp")
+file(GLOB_RECURSE RUNTIME_FILES "${CMAKE_CURRENT_SOURCE_DIR}/runtime/*.cpp")
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(blt-learn ${PROJECT_BUILD_FILES})
+add_library(olds ${PROJECT_BUILD_FILES})
 
-compile_options(blt-learn)
+add_executable(rerun_last_runtime src/runtime.cpp)
+add_executable(run_runtime src/runtime.cpp)
 
-target_link_libraries(blt-learn PRIVATE BLT_WITH_GRAPHICS)
+compile_options(olds)
+compile_options(rerun_last_runtime)
+compile_options(run_runtime)
+
+target_link_libraries(olds PRIVATE BLT_WITH_GRAPHICS)
+target_link_libraries(rerun_last_runtime PRIVATE BLT_WITH_GRAPHICS)
+target_link_libraries(run_runtime PRIVATE BLT_WITH_GRAPHICS)
+
+target_compile_definitions(rerun_last_runtime PRIVATE BLT_AUTORELOAD_RUNTIME=true)
+
+foreach(file ${RUNTIME_FILES})
+    file(RELATIVE_PATH rp "${CMAKE_CURRENT_SOURCE_DIR}/runtime" ${file})
+    string(MAKE_C_IDENTIFIER "${rp}" rp)
+    string(REPLACE "_cpp" "" rp ${rp})
+    has_main("${file}" FILE_HAS_MAIN)
+    if(FILE_HAS_MAIN)
+        message(STATUS "${rp} defines main()")
+        string(APPEND runtimes "\"${CMAKE_BINARY_DIR}/${rp}\",\n")
+
+        add_executable(${rp} ${file})
+        add_dependencies(rerun_last_runtime ${rp})
+        add_dependencies(run_runtime ${rp})
+
+        compile_options(${rp})
+
+        target_link_libraries(${rp} PRIVATE BLT_WITH_GRAPHICS olds)
+    else()
+        message(STATUS "${rp} does not define main()")
+    endif()
+endforeach ()
+
+string(APPEND runtimes " ")
+target_compile_definitions(rerun_last_runtime PRIVATE RUNTIMES=${runtimes})
+target_compile_definitions(run_runtime PRIVATE RUNTIMES=${runtimes})
 
 if (${BUILD_BLT_LEARN_EXAMPLES})
 
