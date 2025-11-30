@@ -67,7 +67,7 @@ function(has_main INPUT_FILE OUT_VAR)
     endif()
 endfunction()
 
-project(blt-learn VERSION 0.0.3)
+project(blt-learn VERSION 0.0.4)
 
 message(STATUS "Building runtime with C++ compiler: ${CMAKE_CXX_COMPILER}")
 
@@ -110,6 +110,7 @@ foreach(file ${RUNTIME_FILES})
     if(FILE_HAS_MAIN)
         message(STATUS "${rp} defines main()")
         string(APPEND runtimes "\"${CMAKE_BINARY_DIR}/${rp}\",\n")
+        string(APPEND sources "\"${file}\",\n")
 
         add_executable(${rp} ${file})
         add_dependencies(rerun_last_runtime ${rp})
@@ -124,8 +125,9 @@ foreach(file ${RUNTIME_FILES})
 endforeach ()
 
 string(APPEND runtimes " ")
-target_compile_definitions(rerun_last_runtime PRIVATE RUNTIMES=${runtimes})
-target_compile_definitions(run_runtime PRIVATE RUNTIMES=${runtimes})
+string(APPEND sources " ")
+target_compile_definitions(rerun_last_runtime PRIVATE RUNTIMES=${runtimes} SOURCES=${sources})
+target_compile_definitions(run_runtime PRIVATE RUNTIMES=${runtimes} SOURCES=${sources})
 
 if (${BUILD_BLT_LEARN_EXAMPLES})
 

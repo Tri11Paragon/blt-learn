@@ -16,7 +16,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "blt/logging/logging.h"
+
 int main()
 {
-
+    BLT_TRACE("I am a big sob!");
 }
