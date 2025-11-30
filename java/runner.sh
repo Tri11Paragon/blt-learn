@@ -1,0 +1,2 @@
+#!bash
+java Playing "$@"

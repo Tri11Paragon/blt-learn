@@ -56,7 +56,7 @@ struct sample_t
 	static vec get_vec()
 	{
 		vec v;
-		for (auto& f : v)
+		for (float& f : v)
 			f = rand_v.get_float();
 		return v;
 	}
@@ -160,7 +160,7 @@ BLT_ATTRIB_NO_INLINE void boy_version(pixel_t& out, const sample_t& in, const we
 	out.position  = (in.ws[0] * weights.w0 + in.ws[1] * weights.w1 + in.ws[2] * weights.w2) / weights.frac;
 }
 
-int main()
+int main231()
 {
 	std::vector<pixel_t>  outputs;
 	std::vector<sample_t> samples;

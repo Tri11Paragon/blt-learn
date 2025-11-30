@@ -1,7 +1,7 @@
 { pkgs ? (import <nixpkgs> { 
     config.allowUnfree = true;
     config.segger-jlink.acceptLicense = true; 
-}), customPkgs ? (import /home/brett/my-nixpkgs {
+}), customPkgs ? (import <nixos-unstable> {
 	config.allowUnfree = true;
     config.segger-jlink.acceptLicense = true;
 }), ... }:
@@ -13,11 +13,24 @@ pkgs.mkShell
 		clang
 		emscripten
 		ninja
-		customPkgs.jetbrains.clion
+		customPkgs.jetbrains.idea-ultimate
 		#clion = import ~/my-nixpkgs/pkgs/applications/editors/jetbrains {};
 		renderdoc
 		valgrind
-#		javaPackages.compiler.openjdk25
+		customPkgs.openjdk24
+		xorg.libX11 
+		xorg.libXext 
+		xorg.libXi 
+		xorg.libXtst 
+		xorg.libXt 
+		xorg.libXrender 
+		xorg.libXrandr 
+		xorg.libXfixes 
+		xorg.libXcursor 
+		xorg.libXinerama 
+		fontconfig 
+		freetype 
+		alsa-lib
 	];
 	propagatedBuildInputs = with pkgs; [
 		xorg.libX11 
@@ -50,7 +63,6 @@ pkgs.mkShell
 		libGL
 		libGL.dev
 		glfw
-		openmpi
 	];
 	LD_LIBRARY_PATH="/run/opengl-driver/lib:/run/opengl-driver-32/lib";
 }

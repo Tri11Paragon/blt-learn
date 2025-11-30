@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import subprocess
 import argparse
@@ -21,7 +21,7 @@ VERSION_END_STR = ")"
 #---------------------------------------
 
 USER_HOME = Path.home()
-ENVIRONMENT_DATA_LOCATION = USER_HOME / ".brett_scripts.json"
+ENVIRONMENT_DATA_LOCATION = USER_HOME / ".brett_scripts.env"
 
 if sys.platform.startswith("win"):
 	CONFIG_FILE_DIRECTORY = Path(os.getenv('APPDATA') + "\blt")
