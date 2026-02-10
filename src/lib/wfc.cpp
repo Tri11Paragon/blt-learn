@@ -827,4 +827,6 @@ int wfcfl2()
 
     BLT_TRACE("{}", __cplusplus);
     blt::gfx::init(blt::gfx::window_data{"Learn Java", init, update, destroy}.setSyncInterval(1));
+
+    return 0;
 }

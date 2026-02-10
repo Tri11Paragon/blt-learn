@@ -114,6 +114,43 @@ struct code_t
         return dot % a.GF;
     }
 
+    friend bool operator==(const code_t& a, const code_t& b)
+    {
+        return blt::in_pairs(a, b).filter([](const auto& tuple)
+        {
+            return std::get<0>(tuple) == std::get<1>(tuple);
+        }).all();
+    }
+
+    friend bool operator!=(const code_t& a, const code_t& b)
+    {
+        return !(a == b);
+    }
+
+    code_t operator++() const
+    {
+        code_t copy = *this;
+        copy.data[copy.size() - 1]++;
+
+        std::optional<blt::u8> carry = {};
+        for (size_t i = 0; i < copy.size(); i++)
+        {
+            const size_t index = (copy.size() - 1) - i;
+            auto& value = copy.data[index];
+            if (carry)
+            {
+                value += *carry;
+                carry = {};
+            }
+            const auto rem = value % copy.GF;
+            if (rem == 0 && value != 0)
+                carry = 1;
+            value = static_cast<blt::u8>(rem);
+        }
+
+        return copy;
+    }
+
     [[nodiscard]] size_t weight() const
     {
         size_t wt = 0;
@@ -142,65 +179,180 @@ struct code_t
     }
 };
 
-std::vector<size_t> weight_distribution(const std::vector<code_t>& matrix)
+struct code_hash_t
 {
-    std::vector<size_t> dist;
-    dist.resize(matrix.size());
-    for (const auto [o, a] : blt::in_pairs(dist, matrix))
-        o = a.weight();
-    return dist;
-}
-
-std::vector<size_t> distance_distribution(const std::vector<code_t>& matrix)
-{
-    std::vector<size_t> dist;
-    dist.resize(matrix.size());
-    for (const auto paired : blt::in_pairs(dist, matrix))
+    size_t operator()(const code_t& code) const
     {
-        auto& o = std::get<0>(paired);
-        const auto& a = std::get<1>(paired);
-        auto map = blt::iterate(matrix).map([&a](const auto& ele)
-        {
-
-            return a.distance_to(ele);
-        });
-        std::vector<size_t> distances;
-        for (auto v : map)
-            distances.push_back(v);
-        o = *std::min_element(distances.begin(), distances.end());
+        size_t collector = 0;
+        for (auto [i, v] : blt::enumerate(code))
+            collector += i * v;
+        return collector;
     }
-    return dist;
-}
+};
 
-size_t min_weight(const std::vector<code_t>& matrix)
+struct code_set_t
 {
-    auto dist = weight_distribution(matrix);
+    blt::hashset_t<code_t, code_hash_t> contained_codes;
+    std::vector<code_t> codes;
+
+    // returns true if the code was added.
+    bool add_code(const code_t& code)
+    {
+        if (contained_codes.find(code) != contained_codes.end())
+            return false;
+        contained_codes.insert(code);
+        codes.push_back(code);
+        return true;
+    }
+
+    [[nodiscard]] code_t multiply(const code_t& code) const
+    {
+        BLT_ASSERT_MSG(codes.size() == code.size(),
+                       "Expected input code size to be equal to the number of codes in the set. (k)");
+        const auto g = code.size();
+        const auto n = codes.begin()->data.size();
+
+        code_t w;
+        w.data.resize(n);
+
+        // output = 1 x n
+
+        // in A = 1 x k
+        // in B = k x n
+
+        for (blt::u32 j = 0; j < n; j++)
+        {
+            for (blt::u32 k = 0; k < g; k++)
+                w.data[j] = w.data[j] + code.data[k] * codes[k].data[j];
+        }
+        for (blt::u32 j = 0; j < n; j++)
+            w.data[j] = w.data[j] % code.GF;
+
+        return w;
+    }
+
+    [[nodiscard]] auto gf() const
+    {
+        BLT_ASSERT(!codes.empty());
+        return codes.begin()->GF;
+    }
+
+    [[nodiscard]] auto k() const
+    {
+        return codes.size();
+    }
+
+    [[nodiscard]] auto n() const
+    {
+        BLT_ASSERT(!codes.empty());
+        return codes.begin()->size();
+    }
+
+    auto operator[](const size_t index) -> decltype(auto)
+    {
+        return codes[index];
+    }
+
+    auto operator[](const size_t index) const -> decltype(auto)
+    {
+        return codes[index];
+    }
+
+    friend bool operator==(const code_set_t& a, const code_set_t& b){
+        for (const auto& code : a.codes)
+        {
+            if (b.contained_codes.find(code) == b.contained_codes.end())
+                return false;
+        }
+        return true;
+    }
+
+    friend bool operator!=(const code_set_t& a, const code_set_t& b)
+    {
+        return !(a == b);
+    }
+
+    [[nodiscard]] auto size() const
+    {
+        return k();
+    }
+
+    auto begin()
+    {
+        return codes.begin();
+    }
+
+    [[nodiscard]] auto begin() const
+    {
+        return codes.begin();
+    }
+
+    auto end()
+    {
+        return codes.end();
+    }
+
+    [[nodiscard]] auto end() const
+    {
+        return codes.end();
+    }
+
+    [[nodiscard]] std::vector<size_t> weight_distribution() const
+    {
+        std::vector<size_t> dist;
+        dist.resize(size());
+        for (const auto [o, a] : blt::in_pairs(dist, *this))
+            o = a.weight();
+        return dist;
+    }
+
+    [[nodiscard]] std::vector<size_t> distance_distribution() const
+    {
+        std::vector<size_t> dist;
+        dist.resize(size());
+        for (const auto paired : blt::in_pairs(dist, *this))
+        {
+            auto& o = std::get<0>(paired);
+            const auto& a = std::get<1>(paired);
+            auto distances = blt::iterate(*this).map([](const auto& ele, const auto& a)
+            {
+                return a.distance_to(ele);
+            }, a).filter(blt::iterator::greater, 0).collect();
+            if (distances.empty())
+                continue;
+            o = *std::min_element(distances.begin(), distances.end());
+        }
+        return dist;
+    }
+
+    [[nodiscard]] code_set_t generate_codewords() const
+    {
+        code_set_t codewords;
+
+        auto n = this->n();
+        auto k = this->k();
+
+        code_t code{};
+        code.data.resize(k);
+        for (size_t ik = 0; ik < static_cast<size_t>(std::pow(this->gf(), k)); ik++)
+        {
+            codewords.add_code(this->multiply(code));
+            code = ++code;
+        }
+
+        return codewords;
+    }
+};
+
+size_t min_weight(const code_set_t& matrix)
+{
+    auto dist = matrix.weight_distribution();
     return *std::min_element(dist.begin(), dist.end());
 }
 
 size_t inner_product(const code_t& a, const code_t& b)
 {
     return a * b;
-}
-
-std::vector<code_t> generate_codewords(const std::vector<code_t>& generator_matrix)
-{
-    std::vector<code_t> codewords;
-
-    for (size_t i = 0; i < generator_matrix.size(); i++)
-    {
-        for (size_t j = i; j < generator_matrix.size(); j++)
-        {
-            if (i == j)
-            {
-                codewords.push_back(generator_matrix[i]);
-                continue;
-            }
-            codewords.push_back(generator_matrix[i] + generator_matrix[j]);
-        }
-    }
-
-    return codewords;
 }
 
 void init(const blt::gfx::window_data&)
@@ -234,23 +386,34 @@ void destroy(const blt::gfx::window_data&)
 
 int main()
 {
-    const auto generator_matrix = std::vector<code_t>{
-        {1, 0, 0, 0, 1, 1, 1},
-        {0, 1, 0, 0, 1, 0, 0},
-        {0, 0, 1, 0, 1, 0, 1},
-        {0, 0, 0, 1, 0, 1, 1}
-    };
-    const auto codewords = generate_codewords(generator_matrix);
+    auto generator_matrix = code_set_t{};
+    generator_matrix.add_code({1, 0, 0, 0, 1, 1, 1});
+    generator_matrix.add_code({0, 1, 0, 0, 1, 0, 0});
+    generator_matrix.add_code({0, 0, 1, 0, 1, 0, 1});
+    generator_matrix.add_code({0, 0, 0, 1, 0, 1, 1});
+
+    const auto codewords = generator_matrix.generate_codewords();
     for (const auto& [i, c] : blt::enumerate(codewords))
         BLT_TRACE("Code {}: {}", i, c.to_string());
 
-    auto weights = weight_distribution(codewords);
-    auto min_weight = *std::min_element(weights.begin(), weights.end());
+    const auto codewords2 = codewords.generate_codewords();
+    for (const auto& [i, c] : blt::enumerate(codewords2))
+        BLT_TRACE("Code2 {}: {}", i, c.to_string());
 
-    auto distances = distance_distribution(codewords);
+    BLT_TRACE("ARE THEY EQUAL? {}", codewords == codewords2);
+
+    const auto weights = codewords.weight_distribution();
+    std::optional<size_t> min_weight;
+    for (const auto& w : weights)
+    {
+        if (w != 0)
+            min_weight = std::min(w, min_weight.value_or(std::numeric_limits<size_t>::max()));
+    }
+
+    auto distances = codewords.distance_distribution();
     auto min_distance = *std::min_element(distances.begin(), distances.end());
 
-    BLT_TRACE("{} vs {}", min_weight, min_distance);
+    BLT_TRACE("{} vs {}", min_weight.value_or(0), min_distance);
 
 
     // blt::gfx::init(blt::gfx::window_data{"Codes for me? Codes for you", init, update, destroy}.setSyncInterval(1));
