@@ -4,9 +4,25 @@
 }), customPkgs ? (import /home/brett/my-nixpkgs {
 	config.allowUnfree = true;
     config.segger-jlink.acceptLicense = true;
+}), unstable ? (import <nixos-unstable> {
+	config.allowUnfree = true;
 }), ... }:
 pkgs.mkShell
 {
+	packages = [
+		unstable.python312Packages.torchWithRocm
+		(pkgs.python312.withPackages (python-pkgs: [
+          python-pkgs.gymnasium
+          python-pkgs.pybox2d
+          python-pkgs.numpy
+          python-pkgs.matplotlib
+          python-pkgs.seaborn
+          python-pkgs.pygame
+          python-pkgs.tqdm
+          python-pkgs.opencv4
+    #     python-pkgs.torchWithRocm
+        ]))
+	];
 	buildInputs = with pkgs; [
 		cmake 
 		gcc

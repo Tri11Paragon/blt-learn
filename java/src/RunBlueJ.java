@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 public class RunBlueJ {
 
@@ -29,6 +30,15 @@ public class RunBlueJ {
             return;
         }
 
+        java.net.URL[] urls = new java.net.URL[args.length > 2 ? 3 : 2];
+        urls[0] = brock_jar.toUri().toURL();
+        urls[1] = path.getParent().toUri().toURL();
+        if (args.length > 2)
+            urls[2] = Path.of(args[2]).toUri().toURL();
+
+        for (var url : urls) {
+            System.out.println("Adding URL: " + url);
+        }
 
         var bytes = Files.readAllBytes(path);
         var clazz = ClassFile.of().parse(bytes);
@@ -51,7 +61,9 @@ public class RunBlueJ {
                 continue;
             }
             CodeAttribute attrib = codeAttrOpt.get();
-            boolean creates_object = false;
+//            boolean creates_object = false;
+            // 1p03
+            boolean creates_object = true;
             for (var el : attrib.elementList()) {
                 if (el instanceof NewObjectInstruction newObj) {
                     if (newObj.className().name() != clazz.thisClass().name()) {
@@ -70,9 +82,7 @@ public class RunBlueJ {
         String internalName = String.valueOf(clazz.thisClass().name());
         String binaryName = internalName.replace('/', '.');
 
-        var parent = new java.net.URLClassLoader(new java.net.URL[]{
-                brock_jar.toUri().toURL()
-        }, ClassLoader.getSystemClassLoader());
+        var parent = new java.net.URLClassLoader(urls, ClassLoader.getSystemClassLoader());
 
         // Load the class bytes into an isolated loader to avoid linkage conflicts
         var loader = new BytesClassLoader(parent);
@@ -93,11 +103,10 @@ public class RunBlueJ {
             }
             // Get main(String[]) and forward remaining CLI args (after the .class path)
             var m = target.getMethod("main", String[].class);
-            String[] mainArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
 
             System.out.println("Invoking " + binaryName + ".main");
             wait_for_frame_close();
-            m.invoke(null, (Object) mainArgs);
+            m.invoke(null, (Object) new String[0]);
         } catch (Throwable t) {
             System.err.println("Failed to invoke main: " + t);
             t.printStackTrace();

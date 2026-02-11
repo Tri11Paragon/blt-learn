@@ -159,6 +159,15 @@ struct code_t
         return wt;
     }
 
+    [[nodiscard]] size_t dot(const code_t& other) const
+    {
+        return blt::in_pairs(*this, other).map([](const auto& tuple) -> size_t
+        {
+            const auto [a, b] = tuple;
+            return a * b;
+        }).sum() % other.GF;
+    }
+
     explicit operator std::string() const
     {
         std::string ret;
@@ -258,7 +267,14 @@ struct code_set_t
         return codes[index];
     }
 
+    [[nodiscard]] auto size() const
+    {
+        return k();
+    }
+
     friend bool operator==(const code_set_t& a, const code_set_t& b){
+        if (a.size() != b.size())
+            return false;
         for (const auto& code : a.codes)
         {
             if (b.contained_codes.find(code) == b.contained_codes.end())
@@ -270,11 +286,6 @@ struct code_set_t
     friend bool operator!=(const code_set_t& a, const code_set_t& b)
     {
         return !(a == b);
-    }
-
-    [[nodiscard]] auto size() const
-    {
-        return k();
     }
 
     auto begin()
@@ -295,6 +306,14 @@ struct code_set_t
     [[nodiscard]] auto end() const
     {
         return codes.end();
+    }
+
+    [[nodiscard]] bool is_orthogonal(const code_t& code) const
+    {
+        return blt::iterate(*this).map([](const code_t& c, const code_t& other)
+        {
+            return other.dot(c) == 0;
+        }, code).all();
     }
 
     [[nodiscard]] std::vector<size_t> weight_distribution() const
@@ -329,8 +348,7 @@ struct code_set_t
     {
         code_set_t codewords;
 
-        auto n = this->n();
-        auto k = this->k();
+        const auto k = this->k();
 
         code_t code{};
         code.data.resize(k);
@@ -341,6 +359,24 @@ struct code_set_t
         }
 
         return codewords;
+    }
+
+    [[nodiscard]] code_set_t dual() const
+    {
+        code_set_t dual;
+
+        const auto n = this->n();
+
+        code_t code{};
+        code.data.resize(n);
+        for (size_t ik = 0; ik < static_cast<size_t>(std::pow(this->gf(), n)); ik++)
+        {
+            if (is_orthogonal(code))
+                dual.add_code(code);
+            code = ++code;
+        }
+
+        return dual;
     }
 };
 
@@ -401,6 +437,10 @@ int main()
         BLT_TRACE("Code2 {}: {}", i, c.to_string());
 
     BLT_TRACE("ARE THEY EQUAL? {}", codewords == codewords2);
+
+    const auto dual = generator_matrix.dual();
+    for (const auto& [i, c] : blt::enumerate(dual))
+        BLT_TRACE("Dual {}: {}", i, c.to_string());
 
     const auto weights = codewords.weight_distribution();
     std::optional<size_t> min_weight;
