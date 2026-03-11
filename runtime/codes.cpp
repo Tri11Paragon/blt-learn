@@ -19,6 +19,10 @@
 #include "blt/gfx/renderer/batch_2d_renderer.h"
 #include "blt/gfx/renderer/camera.h"
 #include <imgui.h>
+#include <set>
+#include <thread>
+
+#include "blt/std/random.h"
 
 blt::gfx::matrix_state_manager global_matrices;
 blt::gfx::resource_manager resources;
@@ -82,6 +86,18 @@ struct code_t
     void resize(const size_t size)
     {
         data.resize(size);
+    }
+
+    [[nodiscard]] code_t noisy(const double error_chance = 0.1) const
+    {
+        thread_local blt::random::random_t random{std::random_device{}()};
+        code_t code = *this;
+        for (auto& bit : code)
+        {
+            if (random.choice(error_chance))
+                bit = static_cast<blt::u8>(random.get_u32(0, GF));
+        }
+        return code;
     }
 
     [[nodiscard]] size_t distance_to(const code_t& o) const
@@ -170,7 +186,9 @@ struct code_t
 
     explicit operator std::string() const
     {
-        std::string ret;
+        std::string ret{};
+        if (data.empty())
+            return ret;
 
         for (const auto c : *this)
         {
@@ -272,7 +290,8 @@ struct code_set_t
         return k();
     }
 
-    friend bool operator==(const code_set_t& a, const code_set_t& b){
+    friend bool operator==(const code_set_t& a, const code_set_t& b)
+    {
         if (a.size() != b.size())
             return false;
         for (const auto& code : a.codes)
@@ -391,10 +410,77 @@ size_t inner_product(const code_t& a, const code_t& b)
     return a * b;
 }
 
+struct less_lex
+{
+    bool operator()(const code_t& a, const code_t& b) const
+    {
+        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+    }
+};
+
+using set_t = std::set<code_t, less_lex>;
+
+set_t build_base_set(const blt::u32 q, const blt::u32 n)
+{
+    set_t ret;
+    code_t code{};
+    code.data.resize(n);
+    for (size_t ik = 0; ik < static_cast<size_t>(std::pow(q, n)); ik++)
+    {
+        ret.insert(code);
+        code = ++code;
+    }
+    return ret;
+}
+
+struct backtrack_finished_t
+{
+};
+
+struct code_not_found_t
+{
+};
+
+struct backtrack
+{
+    blt::u32 n, M, d, q;
+
+    std::vector<code_t> code;
+    std::vector<set_t> candidates;
+
+    backtrack(const blt::u32 n, const blt::u32 M, const blt::u32 d, const blt::u32 q) : n(n), M(M), d(d), q(q)
+    {
+        candidates.push_back(build_base_set(q, n));
+    }
+
+    void basic(const blt::u32 level = 0)
+    {
+        if (candidates[level].empty())
+            throw code_not_found_t{};
+        if (level + 1 >= candidates.size())
+            candidates.emplace_back();
+        code.emplace_back();
+        auto v = candidates[level].begin();
+        for (; v != candidates[level].end(); ++v)
+        {
+            code[level] = *v;
+            candidates[level + 1] = {};
+            for (auto w = std::next(v); w != candidates[level].end(); ++w)
+            {
+                if (v->distance_to(*w) >= d)
+                    candidates[level + 1].insert(*w);
+            }
+            if (level < M)
+                basic(level + 1);
+            else
+                throw backtrack_finished_t{};
+        }
+    }
+};
+
 void init(const blt::gfx::window_data&)
 {
     using namespace blt::gfx;
-
 
     global_matrices.create_internals();
     resources.load_resources();
@@ -420,7 +506,7 @@ void destroy(const blt::gfx::window_data&)
     blt::gfx::cleanup();
 }
 
-int main()
+void generator()
 {
     auto generator_matrix = code_set_t{};
     generator_matrix.add_code({1, 0, 0, 0, 1, 1, 1});
@@ -454,6 +540,31 @@ int main()
     auto min_distance = *std::min_element(distances.begin(), distances.end());
 
     BLT_TRACE("{} vs {}", min_weight.value_or(0), min_distance);
+}
+
+int main()
+{
+    generator();
+    backtrack tracker{11, 63, 4, 2};
+    try
+    {
+        tracker.basic();
+    }
+    catch (backtrack_finished_t)
+    {
+        for (const auto& code : tracker.code)
+        {
+            // std::cout << code.to_string() << std::endl;
+            BLT_TRACE("{}", code.to_string());
+        }
+        BLT_TRACE("Found a ({}, {}, {})_{} with {} codewords!", tracker.n, tracker.M, tracker.d, tracker.q,
+                  tracker.code.size());
+    }
+    catch (code_not_found_t)
+    {
+        BLT_INFO("Unable to find code ({}, {}, {})_{}", tracker.n, tracker.M, tracker.d, tracker.q);
+        BLT_TRACE("Managed to find {} codewords before failing!", tracker.code.size());
+    }
 
 
     // blt::gfx::init(blt::gfx::window_data{"Codes for me? Codes for you", init, update, destroy}.setSyncInterval(1));
