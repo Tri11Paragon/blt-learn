@@ -21,6 +21,7 @@
 #include <imgui.h>
 #include <set>
 #include <thread>
+#include <blt/profiling/profiler_v2.h>
 
 #include "blt/std/random.h"
 
@@ -132,7 +133,7 @@ struct code_t
 
     friend bool operator==(const code_t& a, const code_t& b)
     {
-        return blt::in_pairs(a, b).filter([](const auto& tuple)
+        return blt::in_pairs(a, b).map([](const auto& tuple)
         {
             return std::get<0>(tuple) == std::get<1>(tuple);
         }).all();
@@ -433,10 +434,6 @@ set_t build_base_set(const blt::u32 q, const blt::u32 n)
     return ret;
 }
 
-struct backtrack_finished_t
-{
-};
-
 struct code_not_found_t
 {
 };
@@ -444,6 +441,8 @@ struct code_not_found_t
 struct backtrack
 {
     blt::u32 n, M, d, q;
+
+    std::vector<code_set_t> found_codes{};
 
     std::vector<code_t> code;
     std::vector<set_t> candidates;
@@ -455,11 +454,12 @@ struct backtrack
 
     void basic(const blt::u32 level = 0)
     {
-        if (candidates[level].empty())
-            throw code_not_found_t{};
+        // if (candidates[level].empty())
+        //     throw code_not_found_t{};
         if (level + 1 >= candidates.size())
             candidates.emplace_back();
-        code.emplace_back();
+        if (level >= code.size())
+            code.emplace_back();
         auto v = candidates[level].begin();
         for (; v != candidates[level].end(); ++v)
         {
@@ -473,7 +473,12 @@ struct backtrack
             if (level < M)
                 basic(level + 1);
             else
-                throw backtrack_finished_t{};
+            {
+                code_set_t found_code{};
+                for (const auto& c : code)
+                    BLT_ASSERT(found_code.add_code(c));
+                found_codes.push_back(found_code);
+            }
         }
     }
 };
@@ -545,26 +550,45 @@ void generator()
 int main()
 {
     generator();
-    backtrack tracker{11, 63, 4, 2};
+    BLT_START_INTERVAL("Codes", "Backtracker");
+    backtrack tracker{7, 8, 3, 2};
     try
     {
         tracker.basic();
-    }
-    catch (backtrack_finished_t)
-    {
-        for (const auto& code : tracker.code)
-        {
-            // std::cout << code.to_string() << std::endl;
-            BLT_TRACE("{}", code.to_string());
-        }
-        BLT_TRACE("Found a ({}, {}, {})_{} with {} codewords!", tracker.n, tracker.M, tracker.d, tracker.q,
-                  tracker.code.size());
     }
     catch (code_not_found_t)
     {
         BLT_INFO("Unable to find code ({}, {}, {})_{}", tracker.n, tracker.M, tracker.d, tracker.q);
         BLT_TRACE("Managed to find {} codewords before failing!", tracker.code.size());
     }
+    BLT_END_INTERVAL("Codes", "Backtracker");
+    BLT_START_INTERVAL("Codes", "Code Size Analysis");
+
+    BLT_INFO("Found {} codes", tracker.found_codes.size());
+    auto iter = blt::iterate(tracker.found_codes).map([](const auto& a)
+    {
+        return a.size();
+    }).collect();
+    if (!iter.empty())
+    {
+        auto min = *std::min_element(iter.begin(), iter.end());
+        auto max = *std::max_element(iter.begin(), iter.end());
+        BLT_INFO("Lower Bound: {} | Upper Bound: {}", min, max);
+    }
+    BLT_END_INTERVAL("Codes", "Code Size Analysis");
+    BLT_PRINT_PROFILE("Codes");
+    // for (auto& codewords : tracker.found_codes)
+    // {
+    //     BLT_TRACE("Found a ({}, {}, {})_{} with {} codewords!", tracker.n, tracker.M, tracker.d, tracker.q,
+    //           codewords.size());
+    // }
+    // for (const auto& code : tracker.code)
+    // {
+    //     // std::cout << code.to_string() << std::endl;
+    //     BLT_TRACE("{}", code.to_string());
+    // }
+    // BLT_TRACE("Found a ({}, {}, {})_{} with {} codewords!", tracker.n, tracker.M, tracker.d, tracker.q,
+    //           tracker.code.size());
 
 
     // blt::gfx::init(blt::gfx::window_data{"Codes for me? Codes for you", init, update, destroy}.setSyncInterval(1));

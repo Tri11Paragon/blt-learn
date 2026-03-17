@@ -3,6 +3,8 @@ import brock.PictureDisplayer;
 
 import javax.imageio.ImageIO;
 import java.io.File;
+import java.io.FileReader;
+import java.nio.CharBuffer;
 
 public class Homework4Solution {
 
@@ -24,23 +26,44 @@ public class Homework4Solution {
 
     public void encode(){
         setupEncode("./pictures/IMG_7599.JPG");
-        encodeString("Mreeeoowwww! OH NOOOO! \n" +
-                "\n" +
-                "Rrrowwwrr... WE'VE GOT A PROBLEM!\n" +
-                "\n" +
-                "Tries to reboot virtual cat systems\n" +
-                "\n" +
-                "Purrrr... rebooting sounds\n" +
-                "\n" +
-                "Rrrowwwrr... C'est d'accord! (Okay, okay!)\n" +
-                "\n" +
-                "Tries to reset virtual cat channels\n" +
-                "\n" +
-                "Channel 1: Mreeeoowwww! CatTV - Feline News and Entertainment\n" +
-                " Channel 2: Purrrr... Purrfectly Pets - All about our feline friends!\n" +
-                " Channel 3: Rrrowwwrr... Whisker World - The ultimate destination for cat lovers!\n" +
-                "\n" +
-                "Twitches virtual ears WE'RE BACK, BUDDY!");
+        try (FileReader reader = new FileReader("bee_movie")){
+            StringBuilder sb = new StringBuilder();
+            int c;
+            while ((c = reader.read()) != -1)
+                sb.append((char) c);
+            String str = sb.toString();
+            byte[] bytes = str.getBytes();
+            System.out.println("Got " + bytes.length + " bytes");
+            var writeable_bits = (out.getWidth() * out.getHeight() * 3) * width;
+            System.out.println("Writeable bits: " + writeable_bits);
+            var writeable_bytes = writeable_bits / 8;
+            System.out.println("Writeable bytes: " + writeable_bytes);
+            var scripts = writeable_bytes / bytes.length;
+            System.out.println("Scripts: " + scripts);
+            scripts = (writeable_bytes - scripts * 4) / bytes.length;
+            System.out.println("Scripts2: " + scripts);
+            for (int i = 0; i < (int) scripts - 1; i++)
+                encodeString(str);
+        } catch (Exception e) {
+            System.out.println("Could not find bee movie");
+        }
+//        encodeString("Mreeeoowwww! OH NOOOO! \n" +
+//                "\n" +
+//                "Rrrowwwrr... WE'VE GOT A PROBLEM!\n" +
+//                "\n" +
+//                "Tries to reboot virtual cat systems\n" +
+//                "\n" +
+//                "Purrrr... rebooting sounds\n" +
+//                "\n" +
+//                "Rrrowwwrr... C'est d'accord! (Okay, okay!)\n" +
+//                "\n" +
+//                "Tries to reset virtual cat channels\n" +
+//                "\n" +
+//                "Channel 1: Mreeeoowwww! CatTV - Feline News and Entertainment\n" +
+//                " Channel 2: Purrrr... Purrfectly Pets - All about our feline friends!\n" +
+//                " Channel 3: Rrrowwwrr... Whisker World - The ultimate destination for cat lovers!\n" +
+//                "\n" +
+//                "Twitches virtual ears WE'RE BACK, BUDDY!");
         writeImage("./output.png", out);
     }
 
