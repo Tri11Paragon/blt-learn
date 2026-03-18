@@ -14,7 +14,7 @@ public class Homework4Solution {
     Picture out;
 
     // Number of bits wide. Should be able to divide 8
-    int width = 1;
+    int width = 4;
     int mask = mask();
 
     int channel = 0;
@@ -25,7 +25,7 @@ public class Homework4Solution {
     }
 
     public void encode(){
-        setupEncode("./pictures/IMG_7599.JPG");
+        setupEncode("./pictures/IMG_7599small.JPG");
         try (FileReader reader = new FileReader("bee_movie")){
             StringBuilder sb = new StringBuilder();
             int c;
@@ -34,15 +34,15 @@ public class Homework4Solution {
             String str = sb.toString();
             byte[] bytes = str.getBytes();
             System.out.println("Got " + bytes.length + " bytes");
+            System.out.println("Image size: " + out.getWidth() + "x" + out.getHeight() + " " + (out.getWidth() * out.getHeight() * 3));
             var writeable_bits = (out.getWidth() * out.getHeight() * 3) * width;
             System.out.println("Writeable bits: " + writeable_bits);
             var writeable_bytes = writeable_bits / 8;
             System.out.println("Writeable bytes: " + writeable_bytes);
             var scripts = writeable_bytes / bytes.length;
-            System.out.println("Scripts: " + scripts);
             scripts = (writeable_bytes - scripts * 4) / bytes.length;
-            System.out.println("Scripts2: " + scripts);
-            for (int i = 0; i < (int) scripts - 1; i++)
+            System.out.println("Fits " + scripts + " scripts");
+            for (int i = 0; i < (int) scripts; i++)
                 encodeString(str);
         } catch (Exception e) {
             System.out.println("Could not find bee movie");
@@ -105,6 +105,7 @@ public class Homework4Solution {
                 out.resetDirectIteration();
                 if (channel >= 3)
                     throw new RuntimeException("Out of space in image");
+//                    channel = 0;
             }
 
             var outputPix = out.next();
@@ -143,11 +144,13 @@ public class Homework4Solution {
     }
 
     public void setupDecode(String pictureFile){
+        channel = 0;
         in1 = new Picture(pictureFile);
     }
 
     public String decodeString() {
         int length = decodeInt();
+        System.out.println(length);
         byte[] bytes = new byte[length];
         for (int i = 0; i < length; i++)
             bytes[i] = decodeByte();
@@ -163,6 +166,7 @@ public class Homework4Solution {
                 in1.resetDirectIteration();
                 if (channel >= 3)
                     throw new RuntimeException("Out of space in image");
+//                    channel = 0;
             }
             switch (channel){
                 case 0:

@@ -551,7 +551,7 @@ int main()
 {
     generator();
     BLT_START_INTERVAL("Codes", "Backtracker");
-    backtrack tracker{7, 8, 3, 2};
+    backtrack tracker{4, 4, 2, 2};
     try
     {
         tracker.basic();
