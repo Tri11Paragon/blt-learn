@@ -14,6 +14,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <fstream>
 #include <blt/gfx/window.h>
 #include "blt/gfx/renderer/resource_manager.h"
 #include "blt/gfx/renderer/batch_2d_renderer.h"
@@ -22,8 +23,14 @@
 #include <set>
 #include <thread>
 #include <blt/profiling/profiler_v2.h>
+#include <unistd.h>
+#include <blt/config.h>
+#include <sys/resource.h>
 
 #include "blt/std/random.h"
+#include "blt/std/time.h"
+
+extern char **environ;
 
 blt::gfx::matrix_state_manager global_matrices;
 blt::gfx::resource_manager resources;
@@ -434,10 +441,6 @@ set_t build_base_set(const blt::u32 q, const blt::u32 n)
     return ret;
 }
 
-struct code_not_found_t
-{
-};
-
 struct backtrack
 {
     blt::u32 n, M, d, q;
@@ -447,13 +450,61 @@ struct backtrack
     std::vector<code_t> code;
     std::vector<set_t> candidates;
 
+    blt::u64 total_ops = 0;
+    blt::u64 total_funcs = 0;
+
+    std::vector<bool (*)(blt::u32, blt::u32, const backtrack&)> symbol_allowed_funcs;
+
     backtrack(const blt::u32 n, const blt::u32 M, const blt::u32 d, const blt::u32 q) : n(n), M(M), d(d), q(q)
     {
         candidates.push_back(build_base_set(q, n));
+        symbol_allowed_funcs.push_back([](blt::u32, blt::u32, const backtrack&) { return true; });
+        for (blt::u32 i = 1; i < q; ++i)
+        {
+            if (i == 1)
+            {
+                symbol_allowed_funcs.push_back([](const blt::u32 level, blt::u32, const backtrack& back) -> bool
+                {
+                    return static_cast<float>(level) >= std::ceil(
+                        static_cast<float>(back.M) / static_cast<float>(back.q)) + 1;
+                });
+            }
+            else
+            {
+                symbol_allowed_funcs.push_back([](blt::u32 level, blt::u32 symbol, const backtrack& back) -> bool
+                {
+                    BLT_ABORT("TODO");
+                });
+            }
+        }
+        BLT_TRACE("{}", symbol_allowed_funcs.size());
+    }
+
+    [[nodiscard]] bool allowed(const code_t& c, const blt::u32 level) const
+    {
+        return symbol_allowed_funcs[c.data[0]](level, c.data[0], *this);
+    }
+
+    void assume_zero_vec()
+    {
+        code.emplace_back();
+        candidates.emplace_back();
+        code[0] = code_t{};
+        code[0].GF = q;
+        code[0].data.resize(n);
+        candidates[1] = {};
+        for (auto w = candidates[0].begin(); w != candidates[0].end(); ++w)
+        {
+            ++total_ops;
+            if (code[0].distance_to(*w) >= d)
+                candidates[1].insert(*w);
+        }
+        basic(1);
     }
 
     void basic(const blt::u32 level = 0)
     {
+        ++total_funcs;
         // if (candidates[level].empty())
         //     throw code_not_found_t{};
         if (level + 1 >= candidates.size())
@@ -467,7 +518,8 @@ struct backtrack
             candidates[level + 1] = {};
             for (auto w = std::next(v); w != candidates[level].end(); ++w)
             {
-                if (v->distance_to(*w) >= d)
+                ++total_ops;
+                if (v->distance_to(*w) >= d && allowed(*w, level + 1))
                     candidates[level + 1].insert(*w);
             }
             if (level < M)
@@ -479,6 +531,25 @@ struct backtrack
                     BLT_ASSERT(found_code.add_code(c));
                 found_codes.push_back(found_code);
             }
+        }
+    }
+
+    void print_stats(long total)
+    {
+        const auto ops_per_ms = total == 0 ? 0 : total_ops / total;
+        const auto funcs_per_ms = total == 0 ? 0 : total_funcs / total;
+        BLT_INFO("Found {} codes", found_codes.size());
+        BLT_INFO("Total Function Calls: {} || Total operations: {}", total_funcs, total_ops);
+        BLT_INFO("Total time: {}ms || Funcs/ms: {} || Ops/ms: {}", total, funcs_per_ms, ops_per_ms);
+    }
+
+    void print_random_code()
+    {
+        blt::random::random_t random{std::random_device()()};
+        const auto co = random.select(found_codes);
+        for (const auto& c : co)
+        {
+            BLT_DEBUG("{}", c.to_string());
         }
     }
 };
@@ -549,34 +620,42 @@ void generator()
 
 int main()
 {
-    generator();
-    BLT_START_INTERVAL("Codes", "Backtracker");
-    backtrack tracker{4, 4, 2, 2};
-    try
     {
-        tracker.basic();
+        std::ofstream self{"/proc/self/oom_score_adj"};
+        self << "+1000";
+        static rlimit resource_limit{
+            4l * 1024l * 1024l * 1024l, // 4 GB
+            6l * 1024l * 1024l * 1024l // 6 GB
+        };
+        setrlimit(RLIMIT_DATA, &resource_limit);
     }
-    catch (code_not_found_t)
-    {
-        BLT_INFO("Unable to find code ({}, {}, {})_{}", tracker.n, tracker.M, tracker.d, tracker.q);
-        BLT_TRACE("Managed to find {} codewords before failing!", tracker.code.size());
-    }
-    BLT_END_INTERVAL("Codes", "Backtracker");
-    BLT_START_INTERVAL("Codes", "Code Size Analysis");
 
-    BLT_INFO("Found {} codes", tracker.found_codes.size());
-    auto iter = blt::iterate(tracker.found_codes).map([](const auto& a)
-    {
-        return a.size();
-    }).collect();
-    if (!iter.empty())
-    {
-        auto min = *std::min_element(iter.begin(), iter.end());
-        auto max = *std::max_element(iter.begin(), iter.end());
-        BLT_INFO("Lower Bound: {} | Upper Bound: {}", min, max);
-    }
-    BLT_END_INTERVAL("Codes", "Code Size Analysis");
+    generator();
+
+    const backtrack tracker{7, 4, 2, 2};
+    backtrack basic = tracker;
+    backtrack assume_zero = tracker;
+    long start;
+    long end;
+
+    // BLT_START_INTERVAL("Codes", "Basic");
+    // start = blt::system::getCurrentTimeMilliseconds();
+    // basic.basic();
+    // end = blt::system::getCurrentTimeMilliseconds();
+    // BLT_END_INTERVAL("Codes", "Basic");
+    // basic.print_stats(end - start);
+    // basic.print_random_code();
+
+    BLT_START_INTERVAL("Codes", "Assume Zero");
+    start = blt::system::getCurrentTimeMilliseconds();
+    assume_zero.assume_zero_vec();
+    end = blt::system::getCurrentTimeMilliseconds();
+    BLT_END_INTERVAL("Codes", "Assume Zero");
+    assume_zero.print_stats(end - start);
+    assume_zero.print_random_code();
     BLT_PRINT_PROFILE("Codes");
+
+
     // for (auto& codewords : tracker.found_codes)
     // {
     //     BLT_TRACE("Found a ({}, {}, {})_{} with {} codewords!", tracker.n, tracker.M, tracker.d, tracker.q,
