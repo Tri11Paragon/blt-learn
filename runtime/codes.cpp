@@ -624,15 +624,15 @@ int main()
         std::ofstream self{"/proc/self/oom_score_adj"};
         self << "+1000";
         static rlimit resource_limit{
-            4l * 1024l * 1024l * 1024l, // 4 GB
-            6l * 1024l * 1024l * 1024l // 6 GB
+            6l * 1024l * 1024l * 1024l, // 6 GB
+            8l * 1024l * 1024l * 1024l // 8 GB
         };
         setrlimit(RLIMIT_DATA, &resource_limit);
     }
 
     generator();
 
-    const backtrack tracker{7, 4, 2, 2};
+    const backtrack tracker{9, 4, 2, 2};
     backtrack basic = tracker;
     backtrack assume_zero = tracker;
     long start;
