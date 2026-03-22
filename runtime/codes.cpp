@@ -27,6 +27,8 @@
 #include <blt/config.h>
 #include <sys/resource.h>
 
+#include "blt/format/format.h"
+#include "blt/fs/loader.h"
 #include "blt/std/random.h"
 #include "blt/std/time.h"
 
@@ -632,7 +634,7 @@ int main()
 
     generator();
 
-    const backtrack tracker{9, 4, 2, 2};
+    const backtrack tracker{7, 4, 2, 2};
     backtrack basic = tracker;
     backtrack assume_zero = tracker;
     long start;
@@ -654,6 +656,17 @@ int main()
     assume_zero.print_stats(end - start);
     assume_zero.print_random_code();
     BLT_PRINT_PROFILE("Codes");
+
+    const auto str = blt::fs::getFile("/proc/self/status");
+    auto lines = blt::string::split(str, '\n');
+    auto rss = std::find_if(lines.begin(), lines.end(), [](const auto& line)
+    {
+        return blt::string::starts_with(line, "VmRSS:");
+    });
+    BLT_ASSERT(rss != lines.end());
+    const auto rss_str = blt::string::split(std::string(*rss), '\t')[1];
+    const auto rss_size = std::stol(rss_str);
+    BLT_TRACE("Memory: {}", blt::string::bytes_to_pretty(rss_size * 1024));
 
 
     // for (auto& codewords : tracker.found_codes)

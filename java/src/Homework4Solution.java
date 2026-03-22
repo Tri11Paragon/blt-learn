@@ -14,7 +14,7 @@ public class Homework4Solution {
     Picture out;
 
     // Number of bits wide. Should be able to divide 8
-    int width = 4;
+    int width = 8;
     int mask = mask();
 
     int channel = 0;

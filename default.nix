@@ -29,7 +29,7 @@ pkgs.mkShell
 		clang
 		emscripten
 		ninja
-		customPkgs.jetbrains.clion
+		unstable.jetbrains.clion
 		#clion = import ~/my-nixpkgs/pkgs/applications/editors/jetbrains {};
 		renderdoc
 		valgrind
