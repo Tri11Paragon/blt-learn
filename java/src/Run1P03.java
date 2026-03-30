@@ -1,10 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
-import java.lang.classfile.AccessFlags;
-import java.lang.classfile.Attributes;
-import java.lang.classfile.ClassFile;
-import java.lang.classfile.MethodModel;
+import java.lang.classfile.*;
 import java.lang.classfile.attribute.CodeAttribute;
 import java.lang.classfile.instruction.NewObjectInstruction;
 import java.lang.constant.ClassDesc;
@@ -18,22 +15,15 @@ import java.util.stream.Collectors;
 public class Run1P03 {
 
     public static void main(String[] args) throws IOException {
-        Path brock_jar = Path.of(args[0]);
-        var path = Path.of(args[1]);
-        if (!Files.exists(path)) {
-            System.out.println("File not found: " + path);
+        if (args.length < 3)
+        {
+            System.out.println("Expected (file) (brock_jar) (class_path)");
             return;
         }
-        if (!path.toString().endsWith(".class")) {
-            System.out.println("Not a class file: " + path);
-            return;
-        }
-
-        java.net.URL[] urls = new java.net.URL[args.length > 2 ? 3 : 2];
-        urls[0] = brock_jar.toUri().toURL();
-        urls[1] = path.getParent().toUri().toURL();
-        if (args.length > 2)
-            urls[2] = Path.of(args[2]).toUri().toURL();
+        var path = Path.of(args[0]);
+        java.net.URL[] urls = new java.net.URL[args.length - 1];
+        for (int i = 1; i < args.length; i++)
+            urls[i - 1] = Path.of(args[i]).toUri().toURL();
 
         for (var url : urls) {
             System.out.println("Adding URL: " + url);
@@ -41,11 +31,10 @@ public class Run1P03 {
 
         var bytes = Files.readAllBytes(path);
         var clazz = ClassFile.of().parse(bytes);
-        for (var field : clazz.fields()) {
-            System.out.println("Field: " + flags(field.flags()) + field.fieldTypeSymbol().displayName() + " " + field.fieldName().stringValue());
-        }
+//        for (var field : clazz.fields()) {
+//            System.out.println("Field: " + flags(field.flags()) + field.fieldTypeSymbol().displayName() + " " + field.fieldName().stringValue());
+//        }
 
-        MethodModel main_method = null;
         for (var method : clazz.methods()) {
             var type = method.methodTypeSymbol();
             System.out.print("Method: " + flags(method.flags()) + type.returnType().displayName() + " " + method.methodName().stringValue() + "(");
@@ -53,29 +42,20 @@ public class Run1P03 {
             System.out.println(")");
             if (!method.methodName().stringValue().equals("main"))
                 continue;
-            main_method = method;
             var codeAttrOpt = method.findAttribute(Attributes.code());
             if (codeAttrOpt.isEmpty()) {
                 System.out.println("No code for method.");
                 continue;
             }
-            CodeAttribute attrib = codeAttrOpt.get();
-//            boolean creates_object = false;
-            // 1p03
-            boolean creates_object = true;
-            for (var el : attrib.elementList()) {
-                if (el instanceof NewObjectInstruction newObj) {
-                    if (newObj.className().name() != clazz.thisClass().name()) {
-                        System.err.println("User isn't creating an object of the class he's playing with.");
-                        System.err.println("I am going to assume the presence of this line means it will create the object");
-                        System.err.println("Calling main function!");
-                    }
-                    creates_object = true;
-                    break;
-                }
-            }
-            if (!creates_object)
-                main_method = null;
+            execute(clazz, bytes, urls);
+            return;
+        }
+        System.out.println("No main method found in class " + clazz.thisClass().name());
+    }
+
+    public static void execute(ClassModel clazz, byte[] bytes, java.net.URL[] urls){
+        for (var url : urls){
+            System.out.println("URL: " + url);
         }
         // Compute the binary name (e.g., "pkg.Foo") from internal name (e.g., "pkg/Foo")
         String internalName = String.valueOf(clazz.thisClass().name());
@@ -88,19 +68,6 @@ public class Run1P03 {
 
         try {
             Class<?> target = loader.define(binaryName, bytes);
-            if (main_method == null) {
-//                System.out.println("No main method found, trying to construct a new instance of the class");
-//                for (var constructor : target.getDeclaredConstructors()){
-//                    if (constructor.getParameterCount() == 0){
-//                        System.out.println("Constructing new instance of " + binaryName);
-//                        wait_for_frame_close();
-//                        constructor.newInstance();
-//                        break;
-//                    }
-//                }
-                System.out.println("No main method found in class " + binaryName);
-                return;
-            }
             // Get main(String[]) and forward remaining CLI args (after the .class path)
             var m = target.getMethod("main", String[].class);
 
@@ -108,12 +75,13 @@ public class Run1P03 {
             wait_for_frame_close();
             m.invoke(null, (Object) new String[0]);
         } catch (Throwable t) {
-            System.err.println("Failed to invoke main: " + t);
+            System.out.println("Failed to invoke main: " + t);
+            System.out.println("On file: " + binaryName);
             t.printStackTrace();
         }
     }
 
-    static void wait_for_frame_close(){
+    static void wait_for_frame_close() {
         new Thread(() -> {
             System.out.println("Checking to make sure threads exit.");
             HashSet<Frame> active_frames = new HashSet<>();
@@ -128,8 +96,8 @@ public class Run1P03 {
                         continue;
                     active_frames.add(frame);
                 }
-                for (var frame : active_frames){
-                    if (!frame.isVisible()){
+                for (var frame : active_frames) {
+                    if (!frame.isVisible()) {
                         System.out.println(frame.getTitle() + " is no longer visible.");
                         System.exit(0);
                     }
