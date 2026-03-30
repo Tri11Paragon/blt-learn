@@ -1,3 +1,3 @@
 #!bash
-javac src/RunBlueJ.java
-jar --create --file RunBlueJ.jar --main-class RunBlueJ -C src .
+javac src/Run1P03.java
+jar --create --file Run1P03.jar --main-class Run1P03 -C src .
