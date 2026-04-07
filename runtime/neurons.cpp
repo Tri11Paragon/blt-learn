@@ -47,7 +47,8 @@ struct synapse_t
 
     void decay()
     {
-        mask >>= 1;
+        if (mask > 0)
+            mask >>= 1;
     }
 
     void activate()
@@ -70,29 +71,44 @@ struct synapse_t
 struct neuron_t
 {
     std::array<synapse_t, MAX_CONNECTIONS> input_synapses;
-    std::array<blt::u8, MAX_CONNECTIONS> inputs;
     synapse_t output;
+    blt::u8 input_accumulator;
     blt::u8 delay;
     blt::u8 timer;
     blt::u8 activation_energy;
 
     neuron_t()
     {
+        output.clear();
         activation_energy = delay = ((1 << 4) - 1);
         timer = 0;
+        input_accumulator = 0;
     }
 
     void input(const blt::u32 id, const blt::u8 value)
     {
-        inputs[id] = sadd8(inputs[id], value);
+        input_accumulator = sadd8(input_accumulator, input_synapses[id].forward(value));
+        input_synapses[id].activate();
     }
 
-    blt::u8 forward(const blt::u64 in)
+    std::optional<blt::u8> tick()
     {
-        std::array<blt::u8, MAX_CONNECTIONS> in_data{};
-        std::memcpy(in_data.data(), &in, MAX_CONNECTIONS);
+        // decay inputs per tick.
+        for (auto& i : input_synapses)
+            i.decay();
+        if (timer > 0)
+            --timer;
+        // output regains the ability to activate as time goes on.
+        output.activate();
+        if (input_accumulator > activation_energy && timer == 0)
+        {
+            auto ret = output.forward(input_accumulator);
+            output.clear();
+            input_accumulator = 0;
+            return ret;
+        }
+        return {};
     }
-
 };
 
 
