@@ -19,9 +19,16 @@
 #include <blt/logging/logging.h>
 #include <array>
 
+#include "blt/iterator/enumerate.h"
 #include "blt/iterator/zip.h"
+#include "blt/std/hashmap.h"
 
 constexpr blt::u32 MAX_CONNECTIONS = 8;
+
+enum class neuron_type_t
+{
+    HIDDEN, INPUT, OUTPUT
+};
 
 blt::u8 sadd8(const blt::u8 a, const blt::u8 b)
 {
@@ -102,12 +109,73 @@ struct neuron_t
         output.activate();
         if (input_accumulator > activation_energy && timer == 0)
         {
+            BLT_TRACE("{} ? {} | {}", activation_energy, input_accumulator, output.mask);
             auto ret = output.forward(input_accumulator);
             output.clear();
             input_accumulator = 0;
+            timer = delay;
             return ret;
         }
         return {};
+    }
+};
+
+
+struct neuron_structure_t
+{
+    blt::hashmap_t<std::string, blt::size_t> neuron_ids;
+    std::vector<neuron_t> neurons;
+    blt::hashmap_t<blt::size_t, blt::size_t> connections;
+    blt::hashmap_t<blt::size_t, blt::u32> connection_locations;
+
+    std::vector<blt::size_t> output_neurons;
+    std::vector<blt::size_t> input_neurons;
+
+    blt::size_t add_neuron(const std::string& name, const neuron_type_t type = neuron_type_t::HIDDEN)
+    {
+        const auto id = neurons.size();
+        neurons.emplace_back();
+        neuron_ids[name] = id;
+
+        switch (type)
+        {
+        case neuron_type_t::HIDDEN:
+            break;
+        case neuron_type_t::INPUT:
+            input_neurons.push_back(id);
+            break;
+        case neuron_type_t::OUTPUT:
+            output_neurons.push_back(id);
+            break;
+        }
+
+        return id;
+    }
+
+    void connect(const std::string& from, const std::string& to)
+    {
+        connections[neuron_ids[from]] = neuron_ids[to];
+
+    }
+
+    void connect(const blt::size_t from, const blt::size_t to)
+    {
+        connections[from] = to;
+    }
+
+    void tick()
+    {
+        thread_local std::vector<blt::u8> outputs;
+        outputs.clear();
+
+        for (auto& n : neurons)
+            outputs.push_back(n.tick().value_or(0));
+
+        for (const auto& [i, out] : blt::enumerate(outputs))
+        {
+            if (out > 0)
+                neurons[i].input(connections[i], out);
+        }
     }
 };
 
@@ -121,5 +189,17 @@ int main()
         const auto in = static_cast<blt::u8>((1 << i) - 1);
         BLT_TRACE("{} | {:b} -> {:b}", i, in, synapse.forward(in));
         synapse.decay();
+    }
+
+    neuron_t n;
+    for (int i = 0; i < 10; i++)
+    {
+        n.input(0, 0xFF);
+        n.input(1, 0xF);
+        const auto result = n.tick();
+        if (result)
+        {
+            BLT_INFO("Neuron Fired {}", *result);
+        }
     }
 }

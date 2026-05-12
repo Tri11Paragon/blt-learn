@@ -10,8 +10,8 @@
 pkgs.mkShell
 {
 	packages = [
-		unstable.python312Packages.torchWithRocm
-		(pkgs.python312.withPackages (python-pkgs: [
+		unstable.python313Packages.torchWithRocm
+		(pkgs.python313.withPackages (python-pkgs: [
           python-pkgs.gymnasium
           python-pkgs.pybox2d
           python-pkgs.numpy
@@ -23,13 +23,14 @@ pkgs.mkShell
     #     python-pkgs.torchWithRocm
         ]))
 	];
-	buildInputs = with pkgs; [
+	buildInputs = with unstable; [
 		cmake 
 		gcc
 		clang
 		emscripten
 		ninja
-		unstable.jetbrains.clion
+		mold
+		jetbrains.clion
 		#clion = import ~/my-nixpkgs/pkgs/applications/editors/jetbrains {};
 		renderdoc
 		valgrind
@@ -69,4 +70,13 @@ pkgs.mkShell
 		openmpi
 	];
 	LD_LIBRARY_PATH="/run/opengl-driver/lib:/run/opengl-driver-32/lib";
+
+	shellHook = ''
+        mkdir -p /opt/compilers/current/
+        ln -sfn ${unstable.gcc}/bin/gcc /opt/compilers/current/gcc
+        ln -sfn ${unstable.gcc}/bin/g++ /opt/compilers/current/g++
+        ln -sfn ${unstable.mold}/bin/mold /opt/compilers/current/mold
+        ln -sfn ${unstable.cmake}/bin/cmake /opt/compilers/current/cmake
+        ln -sfn ${unstable.ninja}/bin/ninja /opt/compilers/current/ninja
+    '';
 }
